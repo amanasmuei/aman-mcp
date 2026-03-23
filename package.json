@@ -1,0 +1,41 @@
+{
+  "name": "@aman_asmuei/aman-mcp",
+  "version": "0.1.0",
+  "description": "MCP server for the aman AI companion ecosystem — identity, tools, workflows, guardrails, evaluation",
+  "type": "module",
+  "bin": {
+    "aman-mcp": "./bin/aman-mcp.js"
+  },
+  "main": "./dist/index.js",
+  "files": [
+    "dist",
+    "bin"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "lint": "tsc --noEmit",
+    "dev": "node --loader ts-node/esm src/index.ts"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsup": "^8.4.0",
+    "typescript": "^5.7.0"
+  },
+  "keywords": [
+    "mcp",
+    "ai",
+    "companion",
+    "identity",
+    "acore",
+    "aman"
+  ],
+  "author": "Aman Asmuei",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/amanasmuei/aman-mcp.git"
+  }
+}
