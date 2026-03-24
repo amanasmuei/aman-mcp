@@ -71,3 +71,27 @@ export function identityUpdateSession(
 
   return `Session updated (${now}):\n- Resume: ${resume}\n- Topics: ${topics}\n- Decisions: ${decisions}`;
 }
+
+export function identityUpdateSection(
+  section: string,
+  content: string
+): string {
+  const existing = readFileOr(paths.acore.core, "");
+  if (!existing) {
+    return "No identity configured. Run: npx @aman_asmuei/acore";
+  }
+
+  const pattern = new RegExp(
+    `(## ${section.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\n)[\\s\\S]*?(?=\\n## |$)`
+  );
+  const match = existing.match(pattern);
+
+  if (!match) {
+    return `Section not found: ${section}`;
+  }
+
+  const updated = existing.replace(pattern, `## ${section}\n${content}`);
+  writeFile(paths.acore.core, updated);
+
+  return `Updated section: ${section}`;
+}

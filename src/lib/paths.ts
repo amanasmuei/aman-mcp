@@ -26,6 +26,10 @@ export const paths = {
     dir: path.join(home, ".aeval"),
     eval: path.join(home, ".aeval", "eval.md"),
   },
+  askill: {
+    dir: path.join(home, ".askill"),
+    skills: path.join(home, ".askill", "skills.md"),
+  },
 } as const;
 
 export function readFileOr(filePath: string, fallback: string): string {

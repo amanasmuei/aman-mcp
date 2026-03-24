@@ -1,5 +1,5 @@
 import fs from "node:fs";
-import { paths, readFileOr } from "../lib/paths.js";
+import { paths, readFileOr, writeFile } from "../lib/paths.js";
 
 interface ToolEntry {
   name: string;
@@ -49,4 +49,37 @@ export function toolsSearch(query: string): ToolEntry[] {
       t.description.toLowerCase().includes(q) ||
       t.type.toLowerCase().includes(q)
   );
+}
+
+export function toolsAdd(
+  name: string,
+  type: string,
+  description: string
+): string {
+  const content = readFileOr(paths.akit.kit, "");
+  const entry = `- **${name}** (${type}) — ${description}`;
+
+  if (!content) {
+    writeFile(paths.akit.kit, `# Tool Kit\n\n${entry}\n`);
+  } else {
+    writeFile(paths.akit.kit, content.trimEnd() + "\n" + entry + "\n");
+  }
+
+  return `Added tool: ${name} (${type})`;
+}
+
+export function toolsRemove(name: string): string {
+  const content = readFileOr(paths.akit.kit, "");
+  if (!content) return "No tools file found.";
+
+  const escapedName = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const pattern = new RegExp(`^- \\*\\*${escapedName}\\*\\*.*\\n?`, "m");
+  const match = content.match(pattern);
+
+  if (!match) return `Tool not found: ${name}`;
+
+  const updated = content.replace(pattern, "");
+  writeFile(paths.akit.kit, updated);
+
+  return `Removed tool: ${name}`;
 }

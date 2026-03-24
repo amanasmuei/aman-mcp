@@ -6,11 +6,35 @@ import {
   identityRead,
   identitySummary,
   identityUpdateSession,
+  identityUpdateSection,
 } from "./tools/identity.js";
-import { toolsList, toolsSearch } from "./tools/tools.js";
-import { workflowList, workflowGet } from "./tools/workflows.js";
-import { rulesList, rulesCheck } from "./tools/rules.js";
-import { evalStatus, evalLog } from "./tools/eval.js";
+import { toolsList, toolsSearch, toolsAdd, toolsRemove } from "./tools/tools.js";
+import {
+  workflowList,
+  workflowGet,
+  workflowAdd,
+  workflowUpdate,
+  workflowRemove,
+} from "./tools/workflows.js";
+import {
+  rulesList,
+  rulesCheck,
+  rulesAdd,
+  rulesRemove,
+  rulesToggle,
+} from "./tools/rules.js";
+import {
+  evalStatus,
+  evalLog,
+  evalMilestone,
+  evalReport,
+} from "./tools/eval.js";
+import {
+  skillList,
+  skillSearch,
+  skillInstall,
+  skillUninstall,
+} from "./tools/skills.js";
 
 const server = new McpServer({
   name: "aman-mcp",
@@ -52,6 +76,18 @@ server.tool(
   })
 );
 
+server.tool(
+  "identity_update_section",
+  "Update a specific section of core.md by heading name. Replaces the section content.",
+  {
+    section: z.string().describe("The section heading to update (e.g. 'Personality')"),
+    content: z.string().describe("New content for the section"),
+  },
+  async ({ section, content }) => ({
+    content: [{ type: "text", text: identityUpdateSection(section, content) }],
+  })
+);
+
 // --- Tools (akit) ---
 
 server.tool(
@@ -71,6 +107,30 @@ server.tool(
   },
   async ({ query }) => ({
     content: [{ type: "text", text: JSON.stringify(toolsSearch(query), null, 2) }],
+  })
+);
+
+server.tool(
+  "tools_add",
+  "Add a new tool to kit.md.",
+  {
+    name: z.string().describe("Tool name"),
+    type: z.string().describe("Tool type (e.g. 'mcp', 'cli', 'manual')"),
+    description: z.string().describe("Brief description of the tool"),
+  },
+  async ({ name, type, description }) => ({
+    content: [{ type: "text", text: toolsAdd(name, type, description) }],
+  })
+);
+
+server.tool(
+  "tools_remove",
+  "Remove a tool from kit.md by name.",
+  {
+    name: z.string().describe("Name of the tool to remove"),
+  },
+  async ({ name }) => ({
+    content: [{ type: "text", text: toolsRemove(name) }],
   })
 );
 
@@ -105,6 +165,42 @@ server.tool(
   }
 );
 
+server.tool(
+  "workflow_add",
+  "Add a new workflow with named steps.",
+  {
+    name: z.string().describe("Workflow name"),
+    description: z.string().describe("Brief description of the workflow"),
+    steps: z.array(z.string()).describe("Ordered list of step descriptions"),
+  },
+  async ({ name, description, steps }) => ({
+    content: [{ type: "text", text: workflowAdd(name, description, steps) }],
+  })
+);
+
+server.tool(
+  "workflow_update",
+  "Update the steps of an existing workflow by name.",
+  {
+    name: z.string().describe("Name of the workflow to update"),
+    steps: z.array(z.string()).describe("New ordered list of step descriptions"),
+  },
+  async ({ name, steps }) => ({
+    content: [{ type: "text", text: workflowUpdate(name, steps) }],
+  })
+);
+
+server.tool(
+  "workflow_remove",
+  "Remove a workflow by name.",
+  {
+    name: z.string().describe("Name of the workflow to remove"),
+  },
+  async ({ name }) => ({
+    content: [{ type: "text", text: workflowRemove(name) }],
+  })
+);
+
 // --- Guardrails (arules) ---
 
 server.tool(
@@ -126,6 +222,42 @@ server.tool(
   },
   async ({ action }) => ({
     content: [{ type: "text", text: JSON.stringify(rulesCheck(action), null, 2) }],
+  })
+);
+
+server.tool(
+  "rules_add",
+  "Add a new rule to a category. Creates the category if it doesn't exist.",
+  {
+    category: z.string().describe("Rule category name"),
+    rule: z.string().describe("The rule text to add"),
+  },
+  async ({ category, rule }) => ({
+    content: [{ type: "text", text: rulesAdd(category, rule) }],
+  })
+);
+
+server.tool(
+  "rules_remove",
+  "Remove a rule by 1-based index from a category.",
+  {
+    category: z.string().describe("Rule category name"),
+    ruleIndex: z.number().describe("1-based index of the rule to remove"),
+  },
+  async ({ category, ruleIndex }) => ({
+    content: [{ type: "text", text: rulesRemove(category, ruleIndex) }],
+  })
+);
+
+server.tool(
+  "rules_toggle",
+  "Toggle a rule's active state (strikethrough) by 1-based index.",
+  {
+    category: z.string().describe("Rule category name"),
+    ruleIndex: z.number().describe("1-based index of the rule to toggle"),
+  },
+  async ({ category, ruleIndex }) => ({
+    content: [{ type: "text", text: rulesToggle(category, ruleIndex) }],
   })
 );
 
@@ -152,6 +284,70 @@ server.tool(
   },
   async ({ rating, highlights, improvements }) => ({
     content: [{ type: "text", text: evalLog(rating, highlights, improvements) }],
+  })
+);
+
+server.tool(
+  "eval_milestone",
+  "Record a milestone achievement in the evaluation log.",
+  {
+    text: z.string().describe("Description of the milestone"),
+  },
+  async ({ text }) => ({
+    content: [{ type: "text", text: evalMilestone(text) }],
+  })
+);
+
+server.tool(
+  "eval_report",
+  "Get a full evaluation report with status, milestones, and summary.",
+  {},
+  async () => ({
+    content: [{ type: "text", text: JSON.stringify(evalReport(), null, 2) }],
+  })
+);
+
+// --- Skills (askill) ---
+
+server.tool(
+  "skill_list",
+  "List all skills (installed and available from built-in registry).",
+  {},
+  async () => ({
+    content: [{ type: "text", text: JSON.stringify(skillList(), null, 2) }],
+  })
+);
+
+server.tool(
+  "skill_search",
+  "Search skills by name or description.",
+  {
+    query: z.string().describe("Search query to match against skill names and descriptions"),
+  },
+  async ({ query }) => ({
+    content: [{ type: "text", text: JSON.stringify(skillSearch(query), null, 2) }],
+  })
+);
+
+server.tool(
+  "skill_install",
+  "Install a skill by name. Adds it to skills.md.",
+  {
+    name: z.string().describe("Name of the skill to install"),
+  },
+  async ({ name }) => ({
+    content: [{ type: "text", text: skillInstall(name) }],
+  })
+);
+
+server.tool(
+  "skill_uninstall",
+  "Uninstall a skill by name. Removes it from skills.md.",
+  {
+    name: z.string().describe("Name of the skill to uninstall"),
+  },
+  async ({ name }) => ({
+    content: [{ type: "text", text: skillUninstall(name) }],
   })
 );
 

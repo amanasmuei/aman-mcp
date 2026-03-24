@@ -75,3 +75,63 @@ export function evalLog(
 
   return `Session logged (${now}): ${rating}`;
 }
+
+export function evalMilestone(text: string): string {
+  const now = new Date().toISOString().split("T")[0];
+  const content = readFileOr(paths.aeval.eval, "");
+
+  const entry = `- **${now}** — ${text}`;
+
+  if (!content) {
+    writeFile(
+      paths.aeval.eval,
+      `# Evaluation Log\n\n## Milestones\n${entry}\n`
+    );
+    return `Milestone added: ${text}`;
+  }
+
+  const milestonePattern = /(## Milestones\n)([\s\S]*?)(?=\n## |$)/;
+  const match = content.match(milestonePattern);
+
+  if (match) {
+    const updated = content.replace(
+      milestonePattern,
+      `${match[1]}${match[2].trimEnd()}\n${entry}`
+    );
+    writeFile(paths.aeval.eval, updated);
+  } else {
+    const updated = content.trimEnd() + `\n\n## Milestones\n${entry}\n`;
+    writeFile(paths.aeval.eval, updated);
+  }
+
+  return `Milestone added: ${text}`;
+}
+
+export function evalReport(): {
+  status: EvalStatus;
+  milestones: string[];
+  summary: string;
+} {
+  const status = evalStatus();
+  const content = readFileOr(paths.aeval.eval, "");
+
+  const milestones: string[] = [];
+  const milestoneMatch = content.match(
+    /## Milestones\n([\s\S]*?)(?=\n## |$)/
+  );
+  if (milestoneMatch) {
+    const lines = milestoneMatch[1].split("\n");
+    for (const line of lines) {
+      if (line.match(/^- /)) {
+        milestones.push(line.slice(2).trim());
+      }
+    }
+  }
+
+  const summary =
+    status.totalSessions === 0
+      ? "No sessions recorded yet."
+      : `${status.totalSessions} sessions logged. Trust level: ${status.trustLevel}. Trajectory: ${status.trajectory}. ${milestones.length} milestones recorded.`;
+
+  return { status, milestones, summary };
+}
