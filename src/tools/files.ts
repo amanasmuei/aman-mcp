@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
 import { execFileSync } from "node:child_process";
+import mammoth from "mammoth";
 
 const TEXT_EXTENSIONS = new Set([
   ".txt", ".md", ".json", ".js", ".ts", ".jsx", ".tsx", ".py",
@@ -120,6 +121,36 @@ function convertWithTextutil(filePath: string): string | null {
   }
 }
 
+async function convertWithMammoth(filePath: string): Promise<string | null> {
+  const ext = path.extname(filePath).toLowerCase();
+  if (ext !== ".docx") return null;
+
+  try {
+    const buffer = fs.readFileSync(filePath);
+    const result = await mammoth.extractRawText({ buffer });
+    return result.value || null;
+  } catch {
+    return null;
+  }
+}
+
+async function convertWithPdfParse(filePath: string): Promise<string | null> {
+  const ext = path.extname(filePath).toLowerCase();
+  if (ext !== ".pdf") return null;
+
+  try {
+    const buffer = fs.readFileSync(filePath);
+    // pdf-parse v2 uses PDFParse class — dynamic import to avoid type issues
+    const { PDFParse } = await import("pdf-parse") as any;
+    const parser = new PDFParse({});
+    await parser.load(buffer);
+    const result = parser.getText();
+    return typeof result === "string" ? result : result?.text || null;
+  } catch {
+    return null;
+  }
+}
+
 // --- Exported tool functions ---
 
 export function fileRead(filePath: string): string {
@@ -154,7 +185,7 @@ export function fileRead(filePath: string): string {
   }
 }
 
-export function docConvert(filePath: string): string {
+export async function docConvert(filePath: string): Promise<string> {
   const resolved = resolvePath(filePath);
 
   if (!fs.existsSync(resolved)) {
@@ -179,7 +210,19 @@ export function docConvert(filePath: string): string {
     return `[Converted from ${ext} using docling]\n\n${doclingResult}`;
   }
 
-  // Priority 2: textutil (macOS, docx/doc/rtf/odt only)
+  // Priority 2: mammoth (DOCX — built-in, no external deps)
+  const mammothResult = await convertWithMammoth(resolved);
+  if (mammothResult) {
+    return `[Converted from ${ext} using mammoth]\n\n${mammothResult}`;
+  }
+
+  // Priority 3: pdf-parse (PDF — built-in, no external deps)
+  const pdfResult = await convertWithPdfParse(resolved);
+  if (pdfResult) {
+    return `[Converted from ${ext} using pdf-parse]\n\n${pdfResult}`;
+  }
+
+  // Priority 4: textutil (macOS, docx/doc/rtf/odt only)
   const textutilResult = convertWithTextutil(resolved);
   if (textutilResult) {
     return `[Converted from ${ext} using textutil]\n\n${textutilResult}`;
@@ -189,20 +232,14 @@ export function docConvert(filePath: string): string {
   const installHint = [
     `Could not convert "${basename}" (${ext}).`,
     "",
-    "Install Docling for full document support:",
+    "For full document support, install Docling:",
     "  pip install docling",
     "",
+    "Or add it via akit:",
+    "  akit add docling",
+    "",
     "Docling supports: PDF, DOCX, PPTX, XLSX, HTML, images, and more.",
-    "https://github.com/docling-project/docling",
   ];
-
-  if (process.platform === "darwin" && [".docx", ".doc", ".rtf"].includes(ext)) {
-    installHint.push(
-      "",
-      "Or convert manually on macOS:",
-      `  textutil -convert txt "${resolved}"`,
-    );
-  }
 
   return installHint.join("\n");
 }

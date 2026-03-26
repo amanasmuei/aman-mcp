@@ -367,12 +367,12 @@ server.tool(
 
 server.tool(
   "doc_convert",
-  "Convert a binary document (PDF, DOCX, PPTX, XLSX, etc) to readable markdown text. Uses Docling if installed (best quality), falls back to textutil on macOS. Also works with text files.",
+  "Convert a binary document to readable text. Supports PDF (built-in) and DOCX (built-in). For PPTX, XLSX, images: install Docling (pip install docling) or use 'akit add docling'. Also reads text files directly.",
   {
     path: z.string().describe("Absolute file path or ~/relative path to the document"),
   },
   async ({ path: filePath }) => ({
-    content: [{ type: "text", text: docConvert(filePath) }],
+    content: [{ type: "text", text: await docConvert(filePath) }],
   })
 );
 

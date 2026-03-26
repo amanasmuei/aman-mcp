@@ -76,30 +76,28 @@ describe("fileRead", () => {
 });
 
 describe("docConvert", () => {
-  it("reads text files directly", () => {
-    const result = docConvert(path.join(tmpDir, "hello.txt"));
+  it("reads text files directly", async () => {
+    const result = await docConvert(path.join(tmpDir, "hello.txt"));
     expect(result).toBe("Hello, world!");
   });
 
-  it("returns error for nonexistent file", () => {
-    const result = docConvert(path.join(tmpDir, "nope.docx"));
+  it("returns error for nonexistent file", async () => {
+    const result = await docConvert(path.join(tmpDir, "nope.docx"));
     expect(result).toContain("Error");
     expect(result).toContain("not found");
   });
 
-  it("returns error for unsupported format", () => {
-    const result = docConvert(path.join(tmpDir, "image.png"));
+  it("returns error for unsupported format", async () => {
+    const result = await docConvert(path.join(tmpDir, "image.png"));
     expect(result).toContain("Unsupported format");
   });
 
-  it("provides install hint when docling is not available for docx", () => {
+  it("converts docx with mammoth or shows hint", async () => {
     const docxPath = path.join(tmpDir, "test.docx");
-    // Create a fake docx file (just needs to exist with right extension)
     fs.writeFileSync(docxPath, Buffer.from([0x50, 0x4b, 0x03, 0x04]));
-    const result = docConvert(docxPath);
-    // Should either convert or show install hint
+    const result = await docConvert(docxPath);
     expect(
-      result.includes("Converted") || result.includes("docling") || result.includes("textutil")
+      result.includes("Converted") || result.includes("docling") || result.includes("akit")
     ).toBe(true);
   });
 });
