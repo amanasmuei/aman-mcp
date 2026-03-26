@@ -35,6 +35,7 @@ import {
   skillInstall,
   skillUninstall,
 } from "./tools/skills.js";
+import { fileRead, docConvert, fileList } from "./tools/files.js";
 
 const server = new McpServer({
   name: "aman-mcp",
@@ -348,6 +349,42 @@ server.tool(
   },
   async ({ name }) => ({
     content: [{ type: "text", text: skillUninstall(name) }],
+  })
+);
+
+// --- Files ---
+
+server.tool(
+  "file_read",
+  "Read a text file and return its contents. Supports all common text formats (.txt, .md, .json, .js, .ts, .py, .html, .css, .yml, .sql, etc). For binary documents (.docx, .pdf), use doc_convert instead.",
+  {
+    path: z.string().describe("Absolute file path or ~/relative path"),
+  },
+  async ({ path: filePath }) => ({
+    content: [{ type: "text", text: fileRead(filePath) }],
+  })
+);
+
+server.tool(
+  "doc_convert",
+  "Convert a binary document (PDF, DOCX, PPTX, XLSX, etc) to readable markdown text. Uses Docling if installed (best quality), falls back to textutil on macOS. Also works with text files.",
+  {
+    path: z.string().describe("Absolute file path or ~/relative path to the document"),
+  },
+  async ({ path: filePath }) => ({
+    content: [{ type: "text", text: docConvert(filePath) }],
+  })
+);
+
+server.tool(
+  "file_list",
+  "List files and directories at a given path. Shows file names with sizes. Hides hidden files and node_modules by default.",
+  {
+    path: z.string().describe("Absolute directory path or ~/relative path"),
+    recursive: z.boolean().optional().describe("List recursively (default: false, max 500 entries)"),
+  },
+  async ({ path: dirPath, recursive }) => ({
+    content: [{ type: "text", text: fileList(dirPath, recursive) }],
   })
 );
 
