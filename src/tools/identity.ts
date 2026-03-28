@@ -146,3 +146,75 @@ export function identityUpdateSection(
 
   return `Updated section: ${section}`;
 }
+
+export function avatarPrompt(
+  date?: string,
+  period?: string,
+): string {
+  const content = readFileOr(paths.acore.core, "");
+  if (!content) {
+    return "No identity configured. Run: npx @aman_asmuei/acore";
+  }
+
+  // Extract appearance fields
+  const baseMatch = content.match(/### Appearance[\s\S]*?- Base:\s*(.+)/);
+  const styleMatch = content.match(/### Appearance[\s\S]*?- Style:\s*(.+)/);
+  const paletteMatch = content.match(/### Appearance[\s\S]*?- Palette:\s*(.+)/);
+  const aiNameMatch = content.match(/^#\s+(.+)/m);
+
+  const base = baseMatch?.[1]?.trim();
+  const style = styleMatch?.[1]?.trim();
+  const palette = paletteMatch?.[1]?.trim();
+  const aiName = aiNameMatch?.[1]?.trim() || "AI";
+
+  if (!base || base.startsWith("[")) {
+    return "No appearance configured. Update the Appearance section in core.md first.";
+  }
+
+  // Deterministic seed from date for appearance persistence
+  const today = date || new Date().toISOString().split("T")[0];
+  const timePeriod = period || "default";
+
+  // Generate a simple numeric seed from date string
+  let seed = 0;
+  for (const ch of today + timePeriod) {
+    seed = ((seed << 5) - seed + ch.charCodeAt(0)) | 0;
+  }
+  seed = Math.abs(seed);
+
+  // Build the image generation prompt
+  const parts: string[] = [];
+  parts.push(`Portrait of ${aiName}`);
+  parts.push(base);
+
+  // Period-aware adjustments
+  if (timePeriod === "morning") {
+    parts.push("bright natural morning light, warm tones");
+  } else if (timePeriod === "afternoon") {
+    parts.push("soft afternoon light, clear atmosphere");
+  } else if (timePeriod === "evening") {
+    parts.push("warm golden hour lighting, cozy atmosphere");
+  } else if (timePeriod === "night" || timePeriod === "late-night") {
+    parts.push("soft ambient night lighting, calm atmosphere");
+  }
+
+  if (palette && !palette.startsWith("[")) {
+    parts.push(`color palette: ${palette}`);
+  }
+
+  if (style && !style.startsWith("[")) {
+    parts.push(`${style} style`);
+  }
+
+  parts.push("high quality, consistent character design");
+
+  const prompt = parts.join(", ");
+
+  return JSON.stringify({
+    prompt,
+    seed,
+    date: today,
+    period: timePeriod,
+    appearance: { base, style, palette },
+  }, null, 2);
+}

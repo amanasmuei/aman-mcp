@@ -8,6 +8,7 @@ import {
   identityUpdateSession,
   identityUpdateSection,
   identityUpdateDynamics,
+  avatarPrompt,
 } from "./tools/identity.js";
 import { toolsList, toolsSearch, toolsAdd, toolsRemove } from "./tools/tools.js";
 import {
@@ -101,6 +102,20 @@ server.tool(
   async ({ currentRead, energy, activeMode }) => ({
     content: [
       { type: "text", text: identityUpdateDynamics(currentRead, energy, activeMode) },
+    ],
+  })
+);
+
+server.tool(
+  "avatar_prompt",
+  "Generate a deterministic image generation prompt from the AI's Appearance section in core.md. Same date + period always produces the same visual seed for consistent character appearance.",
+  {
+    date: z.string().optional().describe("Date for seed (YYYY-MM-DD). Defaults to today."),
+    period: z.string().optional().describe("Time period for lighting/mood (morning / afternoon / evening / night / late-night). Defaults to 'default'."),
+  },
+  async ({ date, period }) => ({
+    content: [
+      { type: "text", text: avatarPrompt(date, period) },
     ],
   })
 );
