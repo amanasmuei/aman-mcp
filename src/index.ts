@@ -7,6 +7,7 @@ import {
   identitySummary,
   identityUpdateSession,
   identityUpdateSection,
+  identityUpdateDynamics,
 } from "./tools/identity.js";
 import { toolsList, toolsSearch, toolsAdd, toolsRemove } from "./tools/tools.js";
 import {
@@ -86,6 +87,21 @@ server.tool(
   },
   async ({ section, content }) => ({
     content: [{ type: "text", text: identityUpdateSection(section, content) }],
+  })
+);
+
+server.tool(
+  "identity_update_dynamics",
+  "Update the Dynamics section of core.md with current personality state. Call this to adapt tone based on time of day, session energy, or conversation signals.",
+  {
+    currentRead: z.string().describe("Current emotional/energy read for this session (e.g., 'focused and productive', 'late-night, winding down', 'energetic morning start')"),
+    energy: z.string().optional().describe("Baseline energy override (high-drive / steady / reflective)"),
+    activeMode: z.string().optional().describe("Active context mode (Default / Focused Work / Creative / Personal)"),
+  },
+  async ({ currentRead, energy, activeMode }) => ({
+    content: [
+      { type: "text", text: identityUpdateDynamics(currentRead, energy, activeMode) },
+    ],
   })
 );
 

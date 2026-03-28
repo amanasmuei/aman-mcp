@@ -72,6 +72,57 @@ export function identityUpdateSession(
   return `Session updated (${now}):\n- Resume: ${resume}\n- Topics: ${topics}\n- Decisions: ${decisions}`;
 }
 
+export function identityUpdateDynamics(
+  currentRead: string,
+  energy?: string,
+  activeMode?: string,
+): string {
+  const content = readFileOr(paths.acore.core, "");
+  if (!content) {
+    return "No identity configured. Run: npx @aman_asmuei/acore";
+  }
+
+  // Update Emotional Patterns → Current read
+  let updated = content;
+  const currentReadPattern = /- Current read: .*/;
+  if (currentReadPattern.test(updated)) {
+    updated = updated.replace(currentReadPattern, `- Current read: ${currentRead}`);
+  }
+
+  // Update Emotional Patterns → Baseline energy (if provided)
+  if (energy) {
+    const energyPattern = /- Baseline energy: .*/;
+    if (energyPattern.test(updated)) {
+      updated = updated.replace(energyPattern, `- Baseline energy: ${energy}`);
+    }
+  }
+
+  // Update active Context Mode hint (if provided)
+  if (activeMode) {
+    const modeMarker = /- Active: .*/;
+    if (modeMarker.test(updated)) {
+      updated = updated.replace(modeMarker, `- Active: ${activeMode}`);
+    } else {
+      // Insert active mode marker after "## Context Modes" header line + description
+      const modeHeader = /## Context Modes\n\n>[^\n]+/;
+      if (modeHeader.test(updated)) {
+        updated = updated.replace(modeHeader, (match) => `${match}\n- Active: ${activeMode}`);
+      }
+    }
+  }
+
+  if (updated === content) {
+    return "No matching fields found in Dynamics section";
+  }
+
+  writeFile(paths.acore.core, updated);
+
+  const parts = [`Current read: ${currentRead}`];
+  if (energy) parts.push(`Energy: ${energy}`);
+  if (activeMode) parts.push(`Active mode: ${activeMode}`);
+  return `Dynamics updated: ${parts.join(", ")}`;
+}
+
 export function identityUpdateSection(
   section: string,
   content: string
