@@ -1,178 +1,108 @@
-import { paths, readFileOr, writeFile } from "../lib/paths.js";
+/**
+ * Rules tool implementations — wraps @aman_asmuei/arules-core for the
+ * aman-mcp aggregator.
+ *
+ * Phase 4 of the aman engine v1 build sequence: this file used to read
+ * ~/.arules/rules.md directly via fs + regex parsing. Now it delegates to
+ * arules-core's library API, which means:
+ *
+ *   - Multi-tenant by default (each scope has its own ruleset)
+ *   - The runtime enforcement engine (checkAction, checkToolCall, prompt
+ *     injection) is shared with aman-tg's guardrails — same algorithm,
+ *     same defaults
+ *   - Backward-compatible with hand-edited ~/.arules/rules.md
+ *
+ * Default scope = `dev:plugin` because aman-mcp is consumed primarily by
+ * Claude Code through aman-plugin. Override at runtime with $AMAN_MCP_SCOPE.
+ */
 
-interface RuleCategory {
+import {
+  listRuleCategories,
+  checkAction,
+  addRule,
+  removeRule,
+  toggleRuleAt,
+  getOrCreateRuleset,
+  type RuleCategory,
+} from "@aman_asmuei/arules-core";
+
+function getScope(): string {
+  return process.env.AMAN_MCP_SCOPE ?? "dev:plugin";
+}
+
+/**
+ * MCP-stable shape for the rules_list tool. The arules-core RuleCategory
+ * uses `name`; we map it to `category` for backward compatibility with
+ * any existing aman-mcp consumer that's been reading the old shape.
+ */
+interface MCPRuleCategory {
   category: string;
   rules: string[];
 }
 
-export function rulesList(): RuleCategory[] {
-  const content = readFileOr(paths.arules.rules, "");
-  if (!content) return [];
-
-  const categories: RuleCategory[] = [];
-  const sections = content.split(/\n## /);
-
-  for (const section of sections) {
-    if (!section.trim()) continue;
-
-    const lines = section.split("\n");
-    const category = lines[0].replace(/^#+\s*/, "").trim();
-    if (!category) continue;
-
-    const rules: string[] = [];
-    for (let i = 1; i < lines.length; i++) {
-      const line = lines[i];
-      if (line.match(/^- /)) {
-        rules.push(line.slice(2).trim());
-      }
-    }
-
-    if (rules.length > 0) {
-      categories.push({ category, rules });
-    }
-  }
-
-  return categories;
+export async function rulesList(): Promise<MCPRuleCategory[]> {
+  const cats: RuleCategory[] = await listRuleCategories(getScope());
+  return cats.map((c) => ({ category: c.name, rules: c.rules }));
 }
 
-export function rulesCheck(action: string): {
+export async function rulesCheck(action: string): Promise<{
   violations: string[];
   safe: boolean;
-} {
-  const content = readFileOr(paths.arules.rules, "");
-  if (!content) return { violations: [], safe: true };
-
-  // Look for "Never" section specifically
-  const neverMatch = content.match(/## Never\n([\s\S]*?)(?=\n## |$)/);
-
-  // Also collect all rules as potential violations
-  const allRules: string[] = [];
-
-  if (neverMatch) {
-    const rules = neverMatch[1]
-      .split("\n")
-      .filter((l) => l.startsWith("- "))
-      .map((l) => l.slice(2).trim());
-    allRules.push(...rules);
-  }
-
-  // Also check for rules with "never", "don't", "do not", "must not" keywords
-  const lines = content.split("\n");
-  for (const line of lines) {
-    if (
-      line.startsWith("- ") &&
-      /\b(never|don't|do not|must not|forbidden|prohibited)\b/i.test(line)
-    ) {
-      const rule = line.slice(2).trim();
-      if (!allRules.includes(rule)) {
-        allRules.push(rule);
-      }
-    }
-  }
-
-  const actionLower = action.toLowerCase();
-  const violations = allRules.filter((rule) => {
-    const keywords = rule
-      .toLowerCase()
-      .split(/\s+/)
-      .filter((w) => w.length > 3);
-    return keywords.some((kw) => actionLower.includes(kw));
-  });
-
-  return { violations, safe: violations.length === 0 };
+}> {
+  return checkAction(action, getScope());
 }
 
-export function rulesAdd(category: string, rule: string): string {
-  const content = readFileOr(paths.arules.rules, "");
-
-  if (!content) {
-    const newContent = `# Rules\n\n## ${category}\n- ${rule}\n`;
-    writeFile(paths.arules.rules, newContent);
-    return `Added rule to new category "${category}": ${rule}`;
-  }
-
-  const pattern = new RegExp(
-    `(## ${category.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\n[\\s\\S]*?)(?=\\n## |$)`
-  );
-  const match = content.match(pattern);
-
-  if (match) {
-    const updated = content.replace(pattern, `${match[1]}\n- ${rule}`);
-    writeFile(paths.arules.rules, updated);
-  } else {
-    const updated = content.trimEnd() + `\n\n## ${category}\n- ${rule}\n`;
-    writeFile(paths.arules.rules, updated);
-  }
-
+export async function rulesAdd(
+  category: string,
+  rule: string,
+): Promise<string> {
+  // Bootstrap a default ruleset if none exists, so adding a rule from the
+  // MCP host always succeeds even on a fresh install.
+  await getOrCreateRuleset(getScope());
+  await addRule(category, rule, getScope());
   return `Added rule to "${category}": ${rule}`;
 }
 
-export function rulesRemove(category: string, ruleIndex: number): string {
-  const content = readFileOr(paths.arules.rules, "");
-  if (!content) return "No rules file found.";
-
-  const pattern = new RegExp(
-    `(## ${category.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\n)([\\s\\S]*?)(?=\\n## |$)`
+export async function rulesRemove(
+  category: string,
+  ruleIndex: number,
+): Promise<string> {
+  // Snapshot the categories so we can return a useful message about what
+  // got removed (and validate the index instead of silent no-op).
+  const before = await listRuleCategories(getScope());
+  const cat = before.find(
+    (c) => c.name.toLowerCase() === category.toLowerCase(),
   );
-  const match = content.match(pattern);
-
-  if (!match) return `Category not found: ${category}`;
-
-  const lines = match[2].split("\n");
-  const ruleLines: { index: number; text: string }[] = [];
-  for (let i = 0; i < lines.length; i++) {
-    if (lines[i].match(/^- /)) {
-      ruleLines.push({ index: i, text: lines[i] });
-    }
+  if (!cat) return `Category not found: ${category}`;
+  if (ruleIndex < 1 || ruleIndex > cat.rules.length) {
+    return `Invalid rule index ${ruleIndex}. Category "${category}" has ${cat.rules.length} active rules.`;
   }
+  const removedRule = cat.rules[ruleIndex - 1];
 
-  if (ruleIndex < 1 || ruleIndex > ruleLines.length) {
-    return `Invalid rule index ${ruleIndex}. Category "${category}" has ${ruleLines.length} rules.`;
-  }
-
-  const targetLine = ruleLines[ruleIndex - 1];
-  lines.splice(targetLine.index, 1);
-
-  const updated = content.replace(pattern, `${match[1]}${lines.join("\n")}`);
-  writeFile(paths.arules.rules, updated);
-
-  return `Removed rule ${ruleIndex} from "${category}": ${targetLine.text.slice(2)}`;
+  await removeRule(category, ruleIndex, getScope());
+  return `Removed rule ${ruleIndex} from "${category}": ${removedRule}`;
 }
 
-export function rulesToggle(category: string, ruleIndex: number): string {
-  const content = readFileOr(paths.arules.rules, "");
-  if (!content) return "No rules file found.";
-
-  const pattern = new RegExp(
-    `(## ${category.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\n)([\\s\\S]*?)(?=\\n## |$)`
+export async function rulesToggle(
+  category: string,
+  ruleIndex: number,
+): Promise<string> {
+  // Use the FullRuleCategory listing so the index lines up with disabled
+  // rules too — the toggle operation must be able to flip a rule from
+  // disabled→enabled, and the index has to count both states.
+  const { listRuleCategoriesFull } = await import("@aman_asmuei/arules-core");
+  const fullBefore = await listRuleCategoriesFull(getScope());
+  const cat = fullBefore.find(
+    (c) => c.name.toLowerCase() === category.toLowerCase(),
   );
-  const match = content.match(pattern);
-
-  if (!match) return `Category not found: ${category}`;
-
-  const lines = match[2].split("\n");
-  const ruleLines: { index: number; text: string }[] = [];
-  for (let i = 0; i < lines.length; i++) {
-    if (lines[i].match(/^- /)) {
-      ruleLines.push({ index: i, text: lines[i] });
-    }
+  if (!cat) return `Category not found: ${category}`;
+  if (ruleIndex < 1 || ruleIndex > cat.rules.length) {
+    return `Invalid rule index ${ruleIndex}. Category "${category}" has ${cat.rules.length} rules.`;
   }
+  const target = cat.rules[ruleIndex - 1];
 
-  if (ruleIndex < 1 || ruleIndex > ruleLines.length) {
-    return `Invalid rule index ${ruleIndex}. Category "${category}" has ${ruleLines.length} rules.`;
-  }
+  await toggleRuleAt(category, ruleIndex, getScope());
 
-  const target = ruleLines[ruleIndex - 1];
-  const ruleText = target.text.slice(2).trim();
-
-  if (ruleText.startsWith("~~") && ruleText.endsWith("~~")) {
-    lines[target.index] = `- ${ruleText.slice(2, -2)}`;
-  } else {
-    lines[target.index] = `- ~~${ruleText}~~`;
-  }
-
-  const updated = content.replace(pattern, `${match[1]}${lines.join("\n")}`);
-  writeFile(paths.arules.rules, updated);
-
-  return `Toggled rule ${ruleIndex} in "${category}": ${lines[target.index]}`;
+  const newState = target.disabled ? "enabled" : "disabled";
+  return `Toggled rule ${ruleIndex} in "${category}": ${target.text} (now ${newState})`;
 }

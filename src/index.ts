@@ -51,7 +51,7 @@ server.tool(
   "Read the user's current core.md identity file. Returns the full content.",
   {},
   async () => ({
-    content: [{ type: "text", text: identityRead() }],
+    content: [{ type: "text", text: await identityRead() }],
   })
 );
 
@@ -60,7 +60,7 @@ server.tool(
   "Get a structured summary of the identity: AI name, user name, trust level, personality.",
   {},
   async () => ({
-    content: [{ type: "text", text: JSON.stringify(identitySummary(), null, 2) }],
+    content: [{ type: "text", text: JSON.stringify(await identitySummary(), null, 2) }],
   })
 );
 
@@ -74,7 +74,7 @@ server.tool(
   },
   async ({ resume, topics, decisions }) => ({
     content: [
-      { type: "text", text: identityUpdateSession(resume, topics, decisions) },
+      { type: "text", text: await identityUpdateSession(resume, topics, decisions) },
     ],
   })
 );
@@ -87,7 +87,7 @@ server.tool(
     content: z.string().describe("New content for the section"),
   },
   async ({ section, content }) => ({
-    content: [{ type: "text", text: identityUpdateSection(section, content) }],
+    content: [{ type: "text", text: await identityUpdateSection(section, content) }],
   })
 );
 
@@ -101,7 +101,7 @@ server.tool(
   },
   async ({ currentRead, energy, activeMode }) => ({
     content: [
-      { type: "text", text: identityUpdateDynamics(currentRead, energy, activeMode) },
+      { type: "text", text: await identityUpdateDynamics(currentRead, energy, activeMode) },
     ],
   })
 );
@@ -115,7 +115,7 @@ server.tool(
   },
   async ({ date, period }) => ({
     content: [
-      { type: "text", text: avatarPrompt(date, period) },
+      { type: "text", text: await avatarPrompt(date, period) },
     ],
   })
 );
@@ -240,7 +240,7 @@ server.tool(
   "List all rule categories and their rules.",
   {},
   async () => ({
-    content: [{ type: "text", text: JSON.stringify(rulesList(), null, 2) }],
+    content: [{ type: "text", text: JSON.stringify(await rulesList(), null, 2) }],
   })
 );
 
@@ -253,7 +253,7 @@ server.tool(
       .describe("Description of the proposed action to check against rules"),
   },
   async ({ action }) => ({
-    content: [{ type: "text", text: JSON.stringify(rulesCheck(action), null, 2) }],
+    content: [{ type: "text", text: JSON.stringify(await rulesCheck(action), null, 2) }],
   })
 );
 
@@ -265,7 +265,7 @@ server.tool(
     rule: z.string().describe("The rule text to add"),
   },
   async ({ category, rule }) => ({
-    content: [{ type: "text", text: rulesAdd(category, rule) }],
+    content: [{ type: "text", text: await rulesAdd(category, rule) }],
   })
 );
 
@@ -277,7 +277,7 @@ server.tool(
     ruleIndex: z.number().describe("1-based index of the rule to remove"),
   },
   async ({ category, ruleIndex }) => ({
-    content: [{ type: "text", text: rulesRemove(category, ruleIndex) }],
+    content: [{ type: "text", text: await rulesRemove(category, ruleIndex) }],
   })
 );
 
@@ -289,7 +289,7 @@ server.tool(
     ruleIndex: z.number().describe("1-based index of the rule to toggle"),
   },
   async ({ category, ruleIndex }) => ({
-    content: [{ type: "text", text: rulesToggle(category, ruleIndex) }],
+    content: [{ type: "text", text: await rulesToggle(category, ruleIndex) }],
   })
 );
 

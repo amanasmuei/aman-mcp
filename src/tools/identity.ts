@@ -1,21 +1,56 @@
-import { paths, readFileOr, writeFile } from "../lib/paths.js";
+/**
+ * Identity tool implementations — wraps @aman_asmuei/acore-core for the
+ * aman-mcp aggregator.
+ *
+ * Phase 4 of the aman engine v1 build sequence: this file used to read
+ * ~/.acore/core.md directly via fs + regex parsing. Now it delegates to
+ * acore-core's library API, which means:
+ *
+ *   - Multi-tenant by default (each scope has its own identity)
+ *   - Backward-compatible with hand-edited ~/.acore/core.md (acore-core's
+ *     MarkdownFileStorage uses the same file location for `dev:default`)
+ *   - The aman-mcp tools are now thin wrappers, not parallel implementations
+ *
+ * Default scope = `dev:plugin` because aman-mcp is consumed primarily by
+ * Claude Code through aman-plugin. Override at runtime with $AMAN_MCP_SCOPE.
+ */
 
-export function identityRead(): string {
-  return readFileOr(
-    paths.acore.core,
-    "No identity configured. Run: npx @aman_asmuei/acore"
-  );
+import {
+  getIdentity,
+  getOrCreateIdentity,
+  updateSection,
+  updateDynamics,
+  getBulletField,
+  getSection,
+} from "@aman_asmuei/acore-core";
+
+/**
+ * Default scope for all aman-mcp identity operations. Override with
+ * $AMAN_MCP_SCOPE to point at a different identity (e.g. when running
+ * aman-mcp from a context other than the Claude Code plugin).
+ */
+function getScope(): string {
+  return process.env.AMAN_MCP_SCOPE ?? "dev:plugin";
 }
 
-export function identitySummary(): {
+const NO_IDENTITY_MSG =
+  "No identity configured. Run: npx @aman_asmuei/acore";
+
+export async function identityRead(): Promise<string> {
+  const identity = await getIdentity(getScope());
+  if (!identity) return NO_IDENTITY_MSG;
+  return identity.content;
+}
+
+export async function identitySummary(): Promise<{
   aiName: string;
   userName: string;
   trustLevel: string;
   personality: string;
   role: string;
-} {
-  const content = identityRead();
-  if (content.startsWith("No identity configured")) {
+}> {
+  const identity = await getIdentity(getScope());
+  if (!identity) {
     return {
       aiName: "unknown",
       userName: "unknown",
@@ -25,97 +60,65 @@ export function identitySummary(): {
     };
   }
 
-  const extract = (pattern: RegExp, fallback: string): string => {
-    const match = content.match(pattern);
-    return match?.[1]?.trim() ?? fallback;
-  };
+  // The h1 heading is the AI name (e.g. "# Aman" → "Aman").
+  // acore-core doesn't expose an h1 reader, so we parse it directly here.
+  const h1Match = identity.content.match(/^#\s+(.+)/m);
+
+  // Some templates use "## Personality" as a section body (freeform text);
+  // others have "- Personality:" as a bullet under "## User". Try the bullet
+  // first (legacy shape), then fall back to the section body.
+  const personalityBullet = getBulletField(identity, "Personality");
+  const personalitySection = getSection(identity, "Personality");
 
   return {
-    aiName: extract(/^#\s+(.+)/m, "unknown"),
-    userName: extract(/- Name:\s*(.+)/m, "unknown"),
-    trustLevel: extract(/- Level:\s*(.+)/m, "unknown"),
-    personality: extract(/- Personality:\s*(.+)/m, "unknown"),
-    role: extract(/- Role:\s*(.+)/m, "unknown"),
+    aiName: h1Match?.[1]?.trim() ?? "unknown",
+    userName: getBulletField(identity, "Name") ?? "unknown",
+    trustLevel: getBulletField(identity, "Level") ?? "unknown",
+    personality:
+      personalityBullet ??
+      (personalitySection ? personalitySection.split("\n")[0] : "unknown"),
+    role: getBulletField(identity, "Role") ?? "unknown",
   };
 }
 
-export function identityUpdateSession(
+export async function identityUpdateSession(
   resume: string,
   topics: string,
-  decisions: string
-): string {
-  const content = readFileOr(paths.acore.core, "");
-  if (!content) {
-    return "No identity configured. Run: npx @aman_asmuei/acore";
-  }
-
-  const now = new Date().toISOString().split("T")[0];
-
-  const sessionPattern =
-    /## Session\n([\s\S]*?)(?=\n---|\n## [A-Z]|$)/;
-  const sessionMatch = content.match(sessionPattern);
-
-  if (!sessionMatch) {
-    return "Could not find Session section in core.md";
-  }
-
-  const newSession = `## Session
-- Last updated: ${now}
+  decisions: string,
+): Promise<string> {
+  const today = new Date().toISOString().split("T")[0];
+  const body = `- Last updated: ${today}
 - Resume: ${resume}
 - Active topics: ${topics}
 - Recent decisions: ${decisions}
 - Temp notes: [cleared at session end]`;
 
-  const updated = content.replace(sessionPattern, newSession);
-  writeFile(paths.acore.core, updated);
+  await updateSection("Session", body, getScope());
 
-  return `Session updated (${now}):\n- Resume: ${resume}\n- Topics: ${topics}\n- Decisions: ${decisions}`;
+  return `Session updated (${today}):\n- Resume: ${resume}\n- Topics: ${topics}\n- Decisions: ${decisions}`;
 }
 
-export function identityUpdateDynamics(
+export async function identityUpdateSection(
+  section: string,
+  content: string,
+): Promise<string> {
+  await updateSection(section, content, getScope());
+  return `Updated section: ${section}`;
+}
+
+export async function identityUpdateDynamics(
   currentRead: string,
   energy?: string,
   activeMode?: string,
-): string {
-  const content = readFileOr(paths.acore.core, "");
-  if (!content) {
-    return "No identity configured. Run: npx @aman_asmuei/acore";
-  }
-
-  // Update Emotional Patterns → Current read
-  let updated = content;
-  const currentReadPattern = /- Current read: .*/;
-  if (currentReadPattern.test(updated)) {
-    updated = updated.replace(currentReadPattern, `- Current read: ${currentRead}`);
-  }
-
-  // Update Emotional Patterns → Baseline energy (if provided)
-  if (energy) {
-    const energyPattern = /- Baseline energy: .*/;
-    if (energyPattern.test(updated)) {
-      updated = updated.replace(energyPattern, `- Baseline energy: ${energy}`);
-    }
-  }
-
-  // Update active Context Mode hint (if provided)
-  if (activeMode) {
-    const modeMarker = /- Active: .*/;
-    if (modeMarker.test(updated)) {
-      updated = updated.replace(modeMarker, `- Active: ${activeMode}`);
-    } else {
-      // Insert active mode marker after "## Context Modes" header line + description
-      const modeHeader = /## Context Modes\n\n>[^\n]+/;
-      if (modeHeader.test(updated)) {
-        updated = updated.replace(modeHeader, (match) => `${match}\n- Active: ${activeMode}`);
-      }
-    }
-  }
-
-  if (updated === content) {
-    return "No matching fields found in Dynamics section";
-  }
-
-  writeFile(paths.acore.core, updated);
+): Promise<string> {
+  await updateDynamics(
+    {
+      currentRead,
+      ...(energy !== undefined ? { energy } : {}),
+      ...(activeMode !== undefined ? { activeMode } : {}),
+    },
+    getScope(),
+  );
 
   const parts = [`Current read: ${currentRead}`];
   if (energy) parts.push(`Energy: ${energy}`);
@@ -123,43 +126,33 @@ export function identityUpdateDynamics(
   return `Dynamics updated: ${parts.join(", ")}`;
 }
 
-export function identityUpdateSection(
-  section: string,
-  content: string
-): string {
-  const existing = readFileOr(paths.acore.core, "");
-  if (!existing) {
-    return "No identity configured. Run: npx @aman_asmuei/acore";
-  }
-
-  const pattern = new RegExp(
-    `(## ${section.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\n)[\\s\\S]*?(?=\\n## |$)`
-  );
-  const match = existing.match(pattern);
-
-  if (!match) {
-    return `Section not found: ${section}`;
-  }
-
-  const updated = existing.replace(pattern, `## ${section}\n${content}`);
-  writeFile(paths.acore.core, updated);
-
-  return `Updated section: ${section}`;
-}
-
-export function avatarPrompt(
+/**
+ * Build an image-generation prompt from the Appearance section of the
+ * current identity. The Appearance subsection lives at h3 (`### Appearance`)
+ * inside another section, so this function does its own surgical regex
+ * parsing rather than going through acore-core's section helpers (which
+ * only handle h2). The data still comes from acore-core via getIdentity.
+ *
+ * Same deterministic-seed logic as the legacy implementation: same date +
+ * period always produces the same numeric seed for consistent character
+ * appearance across image generations.
+ */
+export async function avatarPrompt(
   date?: string,
   period?: string,
-): string {
-  const content = readFileOr(paths.acore.core, "");
-  if (!content) {
-    return "No identity configured. Run: npx @aman_asmuei/acore";
-  }
+): Promise<string> {
+  // bootstrap an identity if needed so the user gets a useful error message
+  // instead of "no identity" when the Appearance section is the only thing
+  // that's missing
+  const identity = await getOrCreateIdentity(getScope());
+  const content = identity.content;
 
-  // Extract appearance fields
+  // Extract appearance fields from the ### Appearance subsection
   const baseMatch = content.match(/### Appearance[\s\S]*?- Base:\s*(.+)/);
   const styleMatch = content.match(/### Appearance[\s\S]*?- Style:\s*(.+)/);
-  const paletteMatch = content.match(/### Appearance[\s\S]*?- Palette:\s*(.+)/);
+  const paletteMatch = content.match(
+    /### Appearance[\s\S]*?- Palette:\s*(.+)/,
+  );
   const aiNameMatch = content.match(/^#\s+(.+)/m);
 
   const base = baseMatch?.[1]?.trim();
@@ -175,7 +168,6 @@ export function avatarPrompt(
   const today = date || new Date().toISOString().split("T")[0];
   const timePeriod = period || "default";
 
-  // Generate a simple numeric seed from date string
   let seed = 0;
   for (const ch of today + timePeriod) {
     seed = ((seed << 5) - seed + ch.charCodeAt(0)) | 0;
@@ -187,7 +179,6 @@ export function avatarPrompt(
   parts.push(`Portrait of ${aiName}`);
   parts.push(base);
 
-  // Period-aware adjustments
   if (timePeriod === "morning") {
     parts.push("bright natural morning light, warm tones");
   } else if (timePeriod === "afternoon") {
@@ -210,11 +201,15 @@ export function avatarPrompt(
 
   const prompt = parts.join(", ");
 
-  return JSON.stringify({
-    prompt,
-    seed,
-    date: today,
-    period: timePeriod,
-    appearance: { base, style, palette },
-  }, null, 2);
+  return JSON.stringify(
+    {
+      prompt,
+      seed,
+      date: today,
+      period: timePeriod,
+      appearance: { base, style, palette },
+    },
+    null,
+    2,
+  );
 }

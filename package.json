@@ -18,6 +18,9 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@aman_asmuei/aman-core": "file:../aman-core",
+    "@aman_asmuei/acore-core": "file:../acore-core",
+    "@aman_asmuei/arules-core": "file:../arules-core",
     "@modelcontextprotocol/sdk": "^1.0.0",
     "mammoth": "^1.12.0",
     "pdf-parse": "^2.4.5"
