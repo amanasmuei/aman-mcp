@@ -2,7 +2,6 @@ import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
 import { execFileSync } from "node:child_process";
-import mammoth from "mammoth";
 
 const TEXT_EXTENSIONS = new Set([
   ".txt", ".md", ".json", ".js", ".ts", ".jsx", ".tsx", ".py",
@@ -121,19 +120,6 @@ function convertWithTextutil(filePath: string): string | null {
   }
 }
 
-async function convertWithMammoth(filePath: string): Promise<string | null> {
-  const ext = path.extname(filePath).toLowerCase();
-  if (ext !== ".docx") return null;
-
-  try {
-    const buffer = fs.readFileSync(filePath);
-    const result = await mammoth.extractRawText({ buffer });
-    return result.value || null;
-  } catch {
-    return null;
-  }
-}
-
 async function convertWithPdfParse(filePath: string): Promise<string | null> {
   const ext = path.extname(filePath).toLowerCase();
   if (ext !== ".pdf") return null;
@@ -210,19 +196,13 @@ export async function docConvert(filePath: string): Promise<string> {
     return `[Converted from ${ext} using docling]\n\n${doclingResult}`;
   }
 
-  // Priority 2: mammoth (DOCX — built-in, no external deps)
-  const mammothResult = await convertWithMammoth(resolved);
-  if (mammothResult) {
-    return `[Converted from ${ext} using mammoth]\n\n${mammothResult}`;
-  }
-
-  // Priority 3: pdf-parse (PDF — built-in, no external deps)
+  // Priority 2: pdf-parse (PDF — built-in, no external deps)
   const pdfResult = await convertWithPdfParse(resolved);
   if (pdfResult) {
     return `[Converted from ${ext} using pdf-parse]\n\n${pdfResult}`;
   }
 
-  // Priority 4: textutil (macOS, docx/doc/rtf/odt only)
+  // Priority 3: textutil (macOS, docx/doc/rtf/odt — uses OS-native converter)
   const textutilResult = convertWithTextutil(resolved);
   if (textutilResult) {
     return `[Converted from ${ext} using textutil]\n\n${textutilResult}`;
