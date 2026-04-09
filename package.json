@@ -1,6 +1,6 @@
 {
   "name": "@aman_asmuei/aman-mcp",
-  "version": "0.6.1",
+  "version": "0.6.2",
   "description": "MCP server for the aman AI companion ecosystem — identity, tools, workflows, guardrails, evaluation",
   "type": "module",
   "bin": {
@@ -18,9 +18,9 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@aman_asmuei/acore-core": "^0.1.0",
-    "@aman_asmuei/aman-core": "^0.2.0",
-    "@aman_asmuei/arules-core": "^0.1.0",
+    "@aman_asmuei/acore-core": "^0.2.0",
+    "@aman_asmuei/aman-core": "^0.3.0",
+    "@aman_asmuei/arules-core": "^0.2.0",
     "@modelcontextprotocol/sdk": "^1.0.0",
     "pdf-parse": "^2.4.5"
   },
