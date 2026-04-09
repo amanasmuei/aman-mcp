@@ -15,7 +15,7 @@ aman-mcp v0.6.0 is the first release that runs on **engine v1**, a shared substr
 
 ## Why it matters
 
-aman-mcp is now one frontend among four (Claude Code via aman-plugin, CLI via aman-agent, Telegram via aman-tg, and direct MCP). Improvements to the engine land everywhere at once.
+aman-mcp is now one frontend among four (Claude Code via aman-claude-code, CLI via aman-agent, Telegram via aman-tg, and direct MCP). Improvements to the engine land everywhere at once.
 
 ## Migration impact
 
