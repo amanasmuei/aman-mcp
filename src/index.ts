@@ -38,6 +38,15 @@ import {
   skillUninstall,
 } from "./tools/skills.js";
 import { fileRead, docConvert, fileList } from "./tools/files.js";
+import {
+  intentionsAdd,
+  intentionsGet,
+  intentionsList,
+  intentionsUpdate,
+  intentionsTouch,
+  intentionsClose,
+  intentionsReview,
+} from "./tools/intentions.js";
 
 const server = new McpServer({
   name: "aman-mcp",
@@ -417,6 +426,138 @@ server.tool(
   async ({ path: dirPath, recursive }) => ({
     content: [{ type: "text", text: fileList(dirPath, recursive) }],
   })
+);
+
+// --- Intentions (aintentions) — keystone of the agentic substrate ---
+
+server.tool(
+  "intentions_add",
+  "Create a new active intention (niyyah). Use when Aman commits to a durable goal across sessions.",
+  {
+    description: z.string().min(1).describe("Short, action-oriented title"),
+    niyyah: z.string().min(1).describe("Why this matters — the spiritual/personal anchor"),
+    successCriteria: z.string().min(1).describe("Concrete observable signal of fulfillment"),
+    horizon: z.enum(["this-week", "this-month", "this-quarter", "lifelong"]),
+    linkedProjectId: z.string().optional(),
+  },
+  async (input) => {
+    const intent = await intentionsAdd(input);
+    return {
+      content: [{ type: "text", text: JSON.stringify(intent, null, 2) }],
+    };
+  },
+);
+
+server.tool(
+  "intentions_get",
+  "Read a single intention by id.",
+  { id: z.string() },
+  async ({ id }) => {
+    const intent = await intentionsGet(id);
+    return {
+      content: [
+        {
+          type: "text",
+          text: intent === null ? "null" : JSON.stringify(intent, null, 2),
+        },
+      ],
+    };
+  },
+);
+
+server.tool(
+  "intentions_list",
+  "List intentions filtered by status (default: active) and/or horizon.",
+  {
+    status: z
+      .enum(["active", "paused", "complete", "abandoned"])
+      .optional(),
+    horizon: z
+      .enum(["this-week", "this-month", "this-quarter", "lifelong"])
+      .optional(),
+  },
+  async (filters) => {
+    const list = await intentionsList(filters);
+    return {
+      content: [{ type: "text", text: JSON.stringify(list, null, 2) }],
+    };
+  },
+);
+
+server.tool(
+  "intentions_update",
+  "Patch an intention's description, niyyah, success criteria, horizon, or linked project. Bumps lastTouchedAt automatically.",
+  {
+    id: z.string(),
+    description: z.string().optional(),
+    niyyah: z.string().optional(),
+    successCriteria: z.string().optional(),
+    horizon: z
+      .enum(["this-week", "this-month", "this-quarter", "lifelong"])
+      .optional(),
+    linkedProjectId: z.string().optional(),
+  },
+  async ({ id, ...patch }) => {
+    const updated = await intentionsUpdate(id, patch);
+    return {
+      content: [
+        {
+          type: "text",
+          text: updated === null ? "null" : JSON.stringify(updated, null, 2),
+        },
+      ],
+    };
+  },
+);
+
+server.tool(
+  "intentions_touch",
+  "Bump an intention's lastTouchedAt to now. Call when the conversation moves the intention forward without otherwise modifying it.",
+  { id: z.string() },
+  async ({ id }) => {
+    const touched = await intentionsTouch(id);
+    return {
+      content: [
+        {
+          type: "text",
+          text: touched === null ? "null" : JSON.stringify(touched, null, 2),
+        },
+      ],
+    };
+  },
+);
+
+server.tool(
+  "intentions_close",
+  "Move an intention to complete or abandoned with a reason.",
+  {
+    id: z.string(),
+    status: z.enum(["complete", "abandoned"]),
+    reason: z.string().min(1),
+  },
+  async ({ id, status, reason }) => {
+    const closed = await intentionsClose(id, status, reason);
+    return {
+      content: [
+        {
+          type: "text",
+          text: closed === null ? "null" : JSON.stringify(closed, null, 2),
+        },
+      ],
+    };
+  },
+);
+
+server.tool(
+  "intentions_review",
+  "Bulk review of intentions: counts by status, stale (untouched > staleDays), and horizon distribution. Used by Friday muhasabah agent.",
+  { staleDays: z.number().int().positive().default(7) },
+  async ({ staleDays }) => {
+    const review = await intentionsReview({ staleDays });
+    return {
+      content: [{ type: "text", text: JSON.stringify(review, null, 2) }],
+    };
+  },
 );
 
 // --- Start server ---
