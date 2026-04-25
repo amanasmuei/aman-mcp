@@ -118,3 +118,25 @@ export async function touchIntention(
   await intentionsStorage().put(scope, list);
   return updated;
 }
+
+export async function closeIntention(
+  id: string,
+  status: "complete" | "abandoned",
+  reason: string,
+  scope: Scope,
+): Promise<Intention | null> {
+  const list = await getOrCreateList(scope);
+  const idx = list.intentions.findIndex((i) => i.id === id);
+  if (idx === -1) return null;
+  const now = nowIso();
+  const updated: Intention = {
+    ...list.intentions[idx],
+    status,
+    closedAt: now,
+    closedReason: reason,
+    lastTouchedAt: now,
+  };
+  list.intentions[idx] = updated;
+  await intentionsStorage().put(scope, list);
+  return updated;
+}

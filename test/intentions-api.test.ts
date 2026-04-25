@@ -9,6 +9,7 @@ import {
   updateIntention,
   touchIntention,
 } from "../src/lib/intentions/api.js";
+import { closeIntention } from "../src/lib/intentions/api.js";
 
 const TEST_SCOPE = "test:intentions";
 
@@ -172,5 +173,77 @@ describe("intentions api — update/touch", () => {
     expect(touched).not.toBeNull();
     expect(touched!.description).toBe(created.description);
     expect(touched!.lastTouchedAt).not.toBe(created.lastTouchedAt);
+  });
+});
+
+describe("intentions api — close", () => {
+  let originalEnv: string | undefined;
+  let tmp: string;
+
+  beforeEach(() => {
+    tmp = tmpHome();
+    originalEnv = process.env.AMAN_INTENTIONS_HOME;
+    process.env.AMAN_INTENTIONS_HOME = path.join(tmp, ".aintentions");
+    fs.mkdirSync(process.env.AMAN_INTENTIONS_HOME, { recursive: true });
+  });
+
+  afterEach(() => {
+    if (originalEnv === undefined) delete process.env.AMAN_INTENTIONS_HOME;
+    else process.env.AMAN_INTENTIONS_HOME = originalEnv;
+    fs.rmSync(tmp, { recursive: true, force: true });
+  });
+
+  it("closeIntention('complete') marks intention complete with closedAt and reason", async () => {
+    const created = await addIntention(
+      { description: "X", niyyah: "n", successCriteria: "s", horizon: "this-week" },
+      TEST_SCOPE,
+    );
+    const closed = await closeIntention(
+      created.id,
+      "complete",
+      "shipped",
+      TEST_SCOPE,
+    );
+    expect(closed).not.toBeNull();
+    expect(closed!.status).toBe("complete");
+    expect(closed!.closedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+    expect(closed!.closedReason).toBe("shipped");
+  });
+
+  it("closeIntention('abandoned') marks intention abandoned", async () => {
+    const created = await addIntention(
+      { description: "X", niyyah: "n", successCriteria: "s", horizon: "this-week" },
+      TEST_SCOPE,
+    );
+    const closed = await closeIntention(
+      created.id,
+      "abandoned",
+      "lost interest",
+      TEST_SCOPE,
+    );
+    expect(closed!.status).toBe("abandoned");
+    expect(closed!.closedReason).toBe("lost interest");
+  });
+
+  it("closeIntention() returns null for unknown id", async () => {
+    const result = await closeIntention(
+      "01HKQXNOTEXIST00000000000000",
+      "complete",
+      "x",
+      TEST_SCOPE,
+    );
+    expect(result).toBeNull();
+  });
+
+  it("after close, listIntentions() default (active) does not include closed", async () => {
+    const created = await addIntention(
+      { description: "X", niyyah: "n", successCriteria: "s", horizon: "this-week" },
+      TEST_SCOPE,
+    );
+    await closeIntention(created.id, "complete", "done", TEST_SCOPE);
+    const active = await listIntentions({}, TEST_SCOPE);
+    expect(active).toEqual([]);
+    const completed = await listIntentions({ status: "complete" }, TEST_SCOPE);
+    expect(completed).toHaveLength(1);
   });
 });
