@@ -67,3 +67,54 @@ export async function listIntentions(
     return true;
   });
 }
+
+export interface UpdateIntentionInput {
+  description?: string;
+  niyyah?: string;
+  successCriteria?: string;
+  horizon?: IntentionHorizon;
+  linkedProjectId?: string;
+}
+
+export async function updateIntention(
+  id: string,
+  patch: UpdateIntentionInput,
+  scope: Scope,
+): Promise<Intention | null> {
+  const list = await getOrCreateList(scope);
+  const idx = list.intentions.findIndex((i) => i.id === id);
+  if (idx === -1) return null;
+  const current = list.intentions[idx];
+  const updated: Intention = {
+    ...current,
+    ...(patch.description !== undefined && { description: patch.description }),
+    ...(patch.niyyah !== undefined && { niyyah: patch.niyyah }),
+    ...(patch.successCriteria !== undefined && {
+      successCriteria: patch.successCriteria,
+    }),
+    ...(patch.horizon !== undefined && { horizon: patch.horizon }),
+    ...(patch.linkedProjectId !== undefined && {
+      linkedProjectId: patch.linkedProjectId,
+    }),
+    lastTouchedAt: nowIso(),
+  };
+  list.intentions[idx] = updated;
+  await intentionsStorage().put(scope, list);
+  return updated;
+}
+
+export async function touchIntention(
+  id: string,
+  scope: Scope,
+): Promise<Intention | null> {
+  const list = await getOrCreateList(scope);
+  const idx = list.intentions.findIndex((i) => i.id === id);
+  if (idx === -1) return null;
+  const updated: Intention = {
+    ...list.intentions[idx],
+    lastTouchedAt: nowIso(),
+  };
+  list.intentions[idx] = updated;
+  await intentionsStorage().put(scope, list);
+  return updated;
+}

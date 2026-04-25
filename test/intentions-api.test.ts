@@ -6,6 +6,8 @@ import {
   addIntention,
   getIntention,
   listIntentions,
+  updateIntention,
+  touchIntention,
 } from "../src/lib/intentions/api.js";
 
 const TEST_SCOPE = "test:intentions";
@@ -101,5 +103,74 @@ describe("intentions api — add/get/list", () => {
     const weekly = await listIntentions({ horizon: "this-week" }, TEST_SCOPE);
     expect(weekly).toHaveLength(1);
     expect(weekly[0].description).toBe("Weekly");
+  });
+});
+
+describe("intentions api — update/touch", () => {
+  let originalEnv: string | undefined;
+  let tmp: string;
+
+  beforeEach(() => {
+    tmp = tmpHome();
+    originalEnv = process.env.AMAN_INTENTIONS_HOME;
+    process.env.AMAN_INTENTIONS_HOME = path.join(tmp, ".aintentions");
+    fs.mkdirSync(process.env.AMAN_INTENTIONS_HOME, { recursive: true });
+  });
+
+  afterEach(() => {
+    if (originalEnv === undefined) delete process.env.AMAN_INTENTIONS_HOME;
+    else process.env.AMAN_INTENTIONS_HOME = originalEnv;
+    fs.rmSync(tmp, { recursive: true, force: true });
+  });
+
+  it("updateIntention() patches description, niyyah, success, horizon", async () => {
+    const created = await addIntention(
+      { description: "Old", niyyah: "old", successCriteria: "old", horizon: "this-week" },
+      TEST_SCOPE,
+    );
+    const updated = await updateIntention(
+      created.id,
+      { description: "New", niyyah: "new niyyah", horizon: "this-month" },
+      TEST_SCOPE,
+    );
+    expect(updated).not.toBeNull();
+    expect(updated!.description).toBe("New");
+    expect(updated!.niyyah).toBe("new niyyah");
+    expect(updated!.horizon).toBe("this-month");
+    expect(updated!.successCriteria).toBe("old"); // not touched
+  });
+
+  it("updateIntention() bumps lastTouchedAt", async () => {
+    const created = await addIntention(
+      { description: "X", niyyah: "n", successCriteria: "s", horizon: "this-week" },
+      TEST_SCOPE,
+    );
+    await new Promise((r) => setTimeout(r, 10));
+    const updated = await updateIntention(created.id, { description: "Y" }, TEST_SCOPE);
+    expect(updated!.lastTouchedAt).not.toBe(created.lastTouchedAt);
+    expect(new Date(updated!.lastTouchedAt).getTime()).toBeGreaterThan(
+      new Date(created.lastTouchedAt).getTime(),
+    );
+  });
+
+  it("updateIntention() returns null for unknown id", async () => {
+    const result = await updateIntention(
+      "01HKQXNOTEXIST00000000000000",
+      { description: "x" },
+      TEST_SCOPE,
+    );
+    expect(result).toBeNull();
+  });
+
+  it("touchIntention() bumps lastTouchedAt without changing other fields", async () => {
+    const created = await addIntention(
+      { description: "X", niyyah: "n", successCriteria: "s", horizon: "this-week" },
+      TEST_SCOPE,
+    );
+    await new Promise((r) => setTimeout(r, 10));
+    const touched = await touchIntention(created.id, TEST_SCOPE);
+    expect(touched).not.toBeNull();
+    expect(touched!.description).toBe(created.description);
+    expect(touched!.lastTouchedAt).not.toBe(created.lastTouchedAt);
   });
 });
