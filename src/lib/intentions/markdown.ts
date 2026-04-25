@@ -54,7 +54,7 @@ export function serialize(list: IntentionList): string {
   return lines.join("\n").replace(/\n{3,}/g, "\n\n").trim() + "\n";
 }
 
-const TITLE_RE = /^### (.+?) \[intention:([0-9A-Za-z]{20,30})\]\s*$/;
+const TITLE_RE = /^### (.+?) \[intention:([0-9A-HJKMNP-TV-Z]{26})\]\s*$/;
 const FIELD_RE = /^- ([A-Z][a-z][a-z\s]*?): (.+)$/;
 
 function isHorizon(s: string): s is IntentionHorizon {

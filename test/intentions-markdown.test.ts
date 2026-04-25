@@ -6,7 +6,7 @@ describe("intentions markdown", () => {
   const sample: IntentionList = {
     intentions: [
       {
-        id: "01HKQ7ABCDEFGHJKMNPQRSTVWXY",
+        id: "01HKQ7ABCDEFGHJKMNPQRSTVWX",
         description: "Ship Simi Tracker v2",
         niyyah: "provide a tool that helps me and my team manage projects with adab",
         successCriteria: "v2 deployed to simi.aman.dev with mobile responsive + Linear sync",
@@ -17,7 +17,7 @@ describe("intentions markdown", () => {
         linkedProjectId: "simi-tracker-v2",
       },
       {
-        id: "01HKQ8DONEXAMPLE0000000000",
+        id: "01HKQ8DXNEXAMP1E0000000000",
         description: "Old goal that was completed",
         niyyah: "for ihsan",
         successCriteria: "shipped",
@@ -51,7 +51,7 @@ describe("intentions markdown", () => {
 
   it("serialize() embeds id as [intention:ULID] suffix on the title line", () => {
     const md = serialize(sample);
-    expect(md).toContain("### Ship Simi Tracker v2 [intention:01HKQ7ABCDEFGHJKMNPQRSTVWXY]");
+    expect(md).toContain("### Ship Simi Tracker v2 [intention:01HKQ7ABCDEFGHJKMNPQRSTVWX]");
   });
 
   it("serialize() emits all required fields as bullet lines", () => {
@@ -94,7 +94,7 @@ describe("intentions markdown", () => {
 
 ## Active
 
-### Test [intention:01HKQ9MINIMAL00000000000000]
+### Test [intention:01HKQ9M1N1MA10000000000000]
 - Niyyah: test
 - Success: tested
 - Horizon: this-week
