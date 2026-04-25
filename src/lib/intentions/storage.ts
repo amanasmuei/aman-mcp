@@ -23,8 +23,6 @@ export function getIntentionsRoot(): string {
   return path.join(os.homedir(), ".aintentions");
 }
 
-const EMPTY_LIST: IntentionList = { intentions: [] };
-
 /**
  * Construct a MarkdownFileStorage instance bound to the current intentions
  * root. Returns a fresh instance per call — this matters for tests that
@@ -46,8 +44,11 @@ export function intentionsStorage(): MarkdownFileStorage<IntentionList> {
  * Read the intention list for a scope. Returns an empty list if the file
  * does not exist yet — callers can always call intentions methods without
  * a bootstrap step.
+ *
+ * Returns a fresh object each call to prevent callers from mutating a shared
+ * singleton (which would bleed state across tests and between invocations).
  */
 export async function getOrCreateList(scope: Scope): Promise<IntentionList> {
   const existing = await intentionsStorage().get(scope);
-  return existing ?? EMPTY_LIST;
+  return existing ?? { intentions: [] };
 }
