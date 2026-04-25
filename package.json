@@ -22,7 +22,8 @@
     "@aman_asmuei/aman-core": "^0.3.0",
     "@aman_asmuei/arules-core": "^0.2.0",
     "@modelcontextprotocol/sdk": "^1.0.0",
-    "pdf-parse": "^2.4.5"
+    "pdf-parse": "^2.4.5",
+    "ulid": "^2.4.0"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
