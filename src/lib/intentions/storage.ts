@@ -25,12 +25,22 @@ export function getIntentionsRoot(): string {
 
 const EMPTY_LIST: IntentionList = { intentions: [] };
 
-export const intentionsStorage = new MarkdownFileStorage<IntentionList>({
-  root: getIntentionsRoot(),
-  filename: "intentions.md",
-  serialize,
-  deserialize,
-});
+/**
+ * Construct a MarkdownFileStorage instance bound to the current intentions
+ * root. Returns a fresh instance per call — this matters for tests that
+ * override $AMAN_INTENTIONS_HOME in beforeEach (a memoized instance would
+ * cache the root resolved at module-load time).
+ *
+ * Construction is cheap (just config), so per-call cost is negligible.
+ */
+export function intentionsStorage(): MarkdownFileStorage<IntentionList> {
+  return new MarkdownFileStorage<IntentionList>({
+    root: getIntentionsRoot(),
+    filename: "intentions.md",
+    serialize,
+    deserialize,
+  });
+}
 
 /**
  * Read the intention list for a scope. Returns an empty list if the file
@@ -38,6 +48,6 @@ export const intentionsStorage = new MarkdownFileStorage<IntentionList>({
  * a bootstrap step.
  */
 export async function getOrCreateList(scope: Scope): Promise<IntentionList> {
-  const existing = await intentionsStorage.get(scope);
+  const existing = await intentionsStorage().get(scope);
   return existing ?? EMPTY_LIST;
 }
