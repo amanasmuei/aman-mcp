@@ -140,3 +140,46 @@ export async function closeIntention(
   await intentionsStorage().put(scope, list);
   return updated;
 }
+
+export interface ReviewOptions {
+  /** Intentions whose lastTouchedAt is older than this many days are flagged stale */
+  staleDays: number;
+}
+
+export interface ReviewResult {
+  active: number;
+  paused: number;
+  stale: Intention[];
+  byHorizon: Record<IntentionHorizon, number>;
+}
+
+export async function reviewIntentions(
+  opts: ReviewOptions,
+  scope: Scope,
+): Promise<ReviewResult> {
+  const list = await getOrCreateList(scope);
+  const active = list.intentions.filter((i) => i.status === "active");
+  const paused = list.intentions.filter((i) => i.status === "paused");
+
+  const cutoff = Date.now() - opts.staleDays * 24 * 60 * 60 * 1000;
+  const stale = active.filter(
+    (i) => new Date(i.lastTouchedAt).getTime() < cutoff,
+  );
+
+  const byHorizon: Record<IntentionHorizon, number> = {
+    "this-week": 0,
+    "this-month": 0,
+    "this-quarter": 0,
+    lifelong: 0,
+  };
+  for (const i of active) {
+    byHorizon[i.horizon]++;
+  }
+
+  return {
+    active: active.length,
+    paused: paused.length,
+    stale,
+    byHorizon,
+  };
+}

@@ -10,6 +10,8 @@ import {
   touchIntention,
 } from "../src/lib/intentions/api.js";
 import { closeIntention } from "../src/lib/intentions/api.js";
+import { reviewIntentions } from "../src/lib/intentions/api.js";
+import { intentionsStorage, getOrCreateList } from "../src/lib/intentions/storage.js";
 
 const TEST_SCOPE = "test:intentions";
 
@@ -245,5 +247,70 @@ describe("intentions api — close", () => {
     expect(active).toEqual([]);
     const completed = await listIntentions({ status: "complete" }, TEST_SCOPE);
     expect(completed).toHaveLength(1);
+  });
+});
+
+describe("intentions api — review", () => {
+  let originalEnv: string | undefined;
+  let tmp: string;
+
+  beforeEach(() => {
+    tmp = tmpHome();
+    originalEnv = process.env.AMAN_INTENTIONS_HOME;
+    process.env.AMAN_INTENTIONS_HOME = path.join(tmp, ".aintentions");
+    fs.mkdirSync(process.env.AMAN_INTENTIONS_HOME, { recursive: true });
+  });
+
+  afterEach(() => {
+    if (originalEnv === undefined) delete process.env.AMAN_INTENTIONS_HOME;
+    else process.env.AMAN_INTENTIONS_HOME = originalEnv;
+    fs.rmSync(tmp, { recursive: true, force: true });
+  });
+
+  it("reviewIntentions() reports active count and stale count", async () => {
+    await addIntention(
+      { description: "Fresh", niyyah: "n", successCriteria: "s", horizon: "this-week" },
+      TEST_SCOPE,
+    );
+    const result = await reviewIntentions({ staleDays: 7 }, TEST_SCOPE);
+    expect(result.active).toBe(1);
+    expect(result.stale).toEqual([]);
+  });
+
+  it("reviewIntentions() flags intentions not touched within staleDays", async () => {
+    const created = await addIntention(
+      { description: "Stale", niyyah: "n", successCriteria: "s", horizon: "this-week" },
+      TEST_SCOPE,
+    );
+    // Manipulate stored lastTouchedAt to 30 days ago
+    const list = await getOrCreateList(TEST_SCOPE);
+    list.intentions[0].lastTouchedAt = new Date(
+      Date.now() - 30 * 24 * 60 * 60 * 1000,
+    ).toISOString();
+    await intentionsStorage().put(TEST_SCOPE, list);
+
+    const result = await reviewIntentions({ staleDays: 7 }, TEST_SCOPE);
+    expect(result.stale).toHaveLength(1);
+    expect(result.stale[0].id).toBe(created.id);
+  });
+
+  it("reviewIntentions() includes byHorizon counts", async () => {
+    await addIntention(
+      { description: "W", niyyah: "n", successCriteria: "s", horizon: "this-week" },
+      TEST_SCOPE,
+    );
+    await addIntention(
+      { description: "M", niyyah: "n", successCriteria: "s", horizon: "this-month" },
+      TEST_SCOPE,
+    );
+    await addIntention(
+      { description: "L", niyyah: "n", successCriteria: "s", horizon: "lifelong" },
+      TEST_SCOPE,
+    );
+    const result = await reviewIntentions({ staleDays: 7 }, TEST_SCOPE);
+    expect(result.byHorizon["this-week"]).toBe(1);
+    expect(result.byHorizon["this-month"]).toBe(1);
+    expect(result.byHorizon["lifelong"]).toBe(1);
+    expect(result.byHorizon["this-quarter"]).toBe(0);
   });
 });
