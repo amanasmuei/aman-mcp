@@ -130,6 +130,38 @@ describe("evalStatus", () => {
     expect(result.trustLevel).toBe("3");
     expect(result.recentRatings).toEqual([]);
   });
+
+  it("parses Format B (AI Relationship Metrics layout): case-insensitive Trust level + falls back to last Session header for lastSession", () => {
+    // Format B is what the /eval skill writes on bootstrap. It uses lowercase
+    // "Trust level" and has no "Last updated:" field. evalStatus must still
+    // surface meaningful values when reading these files.
+    const formatB = `# AI Relationship Metrics
+
+## Overview
+- Sessions: 0
+- First session: 2026-04-22
+- Trust level: 3/5
+- Trajectory: building
+
+## Timeline
+
+## Milestones
+
+## Patterns
+
+### Session 2026-04-25
+- Rating: good
+- Highlights: Productive session
+- Improvements: None
+`;
+    writeTestFile(tempPaths.aeval.eval, formatB);
+    const result = evalStatus();
+    expect(result.totalSessions).toBe(1);
+    expect(result.trustLevel).toBe("3/5");
+    expect(result.trajectory).toBe("building");
+    expect(result.lastSession).toBe("2026-04-25");
+    expect(result.recentRatings).toEqual(["good"]);
+  });
 });
 
 describe("evalLog", () => {

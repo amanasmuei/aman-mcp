@@ -36,12 +36,32 @@ export function evalStatus(): EvalStatus {
     ratings.push(m[1].trim());
   }
 
+  // Trust level / trajectory: case-insensitive on the "Level"/"Trajectory" word
+  // so we accept both Format A ("Trust Level: 4", written by evalLog) and
+  // Format B ("Trust level: 3/5", written by /eval skill bootstrap).
+  const trustLevel = extract(/- Trust [Ll]evel:\s*(.+)/m, "unknown");
+  const trajectory = extract(/- [Tt]rajectory:\s*(.+)/m, "unknown");
+
+  // lastSession: prefer the "Last updated:" field (Format A) when present.
+  // Fall back to the most recent "### Session YYYY-MM-DD" header date —
+  // that always exists when at least one session has been logged, and gives
+  // a meaningful value for Format B files that have no Last updated field.
+  let lastSession = extract(/- Last updated:\s*(.+)/m, "");
+  if (!lastSession) {
+    const sessionDates = [
+      ...content.matchAll(/^### Session\s+(\d{4}-\d{2}-\d{2})/gm),
+    ].map((m) => m[1]);
+    lastSession = sessionDates.length > 0
+      ? sessionDates[sessionDates.length - 1]
+      : "never";
+  }
+
   return {
     totalSessions,
-    trustLevel: extract(/- Trust Level:\s*(.+)/m, "unknown"),
-    trajectory: extract(/- Trajectory:\s*(.+)/m, "unknown"),
+    trustLevel,
+    trajectory,
     recentRatings: ratings.slice(-5),
-    lastSession: extract(/- Last updated:\s*(.+)/m, "never"),
+    lastSession,
   };
 }
 
