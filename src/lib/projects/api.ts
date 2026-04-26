@@ -249,3 +249,15 @@ export async function updateProject(
   await projectsStorage().put(scope, list);
   return updated;
 }
+
+export type ProjectBrief = Omit<Project, "sessionLog">;
+
+export async function listProjectsBrief(
+  scope: Scope,
+): Promise<ProjectBrief[]> {
+  const list = await getOrCreateList(scope);
+  return list.projects.map((p) => {
+    const { sessionLog: _, ...rest } = p;
+    return rest;
+  });
+}

@@ -12,6 +12,7 @@ import {
   saveSession,
   closeProject,
   updateProject,
+  listProjectsBrief,
 } from "../src/lib/projects/api.js";
 
 const TEST_SCOPE = "test:projects";
@@ -292,5 +293,17 @@ describe("updateProject", () => {
         TEST_SCOPE,
       ),
     ).toBeNull();
+  });
+});
+
+describe("listProjectsBrief", () => {
+  it("returns project metadata without sessionLog (fast path for hook)", async () => {
+    const a = await addProject({ name: "alpha" }, TEST_SCOPE);
+    await saveSession(a.id, "lots of session content here", TEST_SCOPE);
+    const brief = await listProjectsBrief(TEST_SCOPE);
+    expect(brief).toHaveLength(1);
+    expect(brief[0].id).toBe(a.id);
+    expect(brief[0].name).toBe("alpha");
+    expect("sessionLog" in brief[0]).toBe(false);
   });
 });
