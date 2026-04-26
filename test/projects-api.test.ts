@@ -227,3 +227,39 @@ describe("saveSession", () => {
     expect(await saveSession("01HKQXNOTEXIST00000000000000", "x", TEST_SCOPE)).toBeNull();
   });
 });
+
+describe("closeProject", () => {
+  it("transitions to complete with closedAt+reason and frees the slot", async () => {
+    const a = await addProject({ name: "alpha" }, TEST_SCOPE);
+    const b = await addProject({ name: "beta" }, TEST_SCOPE);
+    const closed = await closeProject(a.id, "complete", "done", TEST_SCOPE);
+    expect(closed?.status).toBe("complete");
+    expect(closed?.inActiveList).toBe(false);
+    expect(closed?.position).toBeUndefined();
+    expect(closed?.closedReason).toBe("done");
+    expect(closed?.closedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+    // beta should renumber to position 1
+    const fetchedB = await getProject(b.id, TEST_SCOPE);
+    expect(fetchedB?.position).toBe(1);
+  });
+
+  it("transitions to paused (slot freed but lifecycle not closed)", async () => {
+    const a = await addProject({ name: "alpha" }, TEST_SCOPE);
+    const paused = await closeProject(a.id, "paused", "stepping away", TEST_SCOPE);
+    expect(paused?.status).toBe("paused");
+    expect(paused?.inActiveList).toBe(false);
+  });
+
+  it("transitions to abandoned with reason", async () => {
+    const a = await addProject({ name: "alpha" }, TEST_SCOPE);
+    const abandoned = await closeProject(a.id, "abandoned", "wrong direction", TEST_SCOPE);
+    expect(abandoned?.status).toBe("abandoned");
+    expect(abandoned?.closedReason).toBe("wrong direction");
+  });
+
+  it("returns null for unknown id", async () => {
+    expect(
+      await closeProject("01HKQXNOTEXIST00000000000000", "complete", "x", TEST_SCOPE),
+    ).toBeNull();
+  });
+});
