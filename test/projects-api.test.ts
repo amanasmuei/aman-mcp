@@ -83,4 +83,11 @@ describe("addProject", () => {
     const newest = await getProject(created[10].id, TEST_SCOPE);
     expect(newest?.position).toBe(1);
   });
+
+  it("rejects duplicate names (case-insensitive) with a clear error", async () => {
+    await addProject({ name: "Alpha" }, TEST_SCOPE);
+    await expect(
+      addProject({ name: "alpha" }, TEST_SCOPE),
+    ).rejects.toThrow(/already exists/i);
+  });
 });
