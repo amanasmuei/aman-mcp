@@ -72,8 +72,30 @@ export async function getProject(
   return list.projects.find((p) => p.id === id) ?? null;
 }
 
-export async function listProjects(_filters: any, _scope: Scope): Promise<Project[]> {
-  return [];
+export interface ListProjectsFilters {
+  status?: ProjectStatus;
+  inActiveList?: boolean;
+}
+
+export async function listProjects(
+  filters: ListProjectsFilters,
+  scope: Scope,
+): Promise<Project[]> {
+  const list = await getOrCreateList(scope);
+  return list.projects.filter((p) => {
+    if (filters.status !== undefined && p.status !== filters.status)
+      return false;
+    if (
+      filters.inActiveList !== undefined &&
+      p.inActiveList !== filters.inActiveList
+    )
+      return false;
+    if (filters.status === undefined && filters.inActiveList === undefined) {
+      // Default: active + inActiveList
+      return p.status === "active" && p.inActiveList;
+    }
+    return true;
+  });
 }
 
 export async function activeProject(_scope: Scope): Promise<Project | null> {
@@ -92,8 +114,31 @@ export async function saveSession(_id: string, _note: string, _scope: Scope): Pr
   return null;
 }
 
-export async function closeProject(_id: string, _status: ProjectStatus, _reason: string, _scope: Scope): Promise<Project | null> {
-  return null;
+export async function closeProject(
+  id: string,
+  status: ProjectStatus,
+  reason: string,
+  scope: Scope,
+): Promise<Project | null> {
+  const list = await getOrCreateList(scope);
+  const idx = list.projects.findIndex((p) => p.id === id);
+  if (idx === -1) return null;
+  const now = nowIso();
+  const updated: Project = {
+    ...list.projects[idx],
+    status,
+    inActiveList: false,
+    position: undefined,
+    closedAt: now,
+    closedReason: reason,
+    lastTouchedAt: now,
+  };
+  list.projects[idx] = updated;
+  // Renumber remaining active projects to close gaps
+  const { renumberPositions } = await import("./lru.js");
+  renumberPositions(list);
+  await projectsStorage().put(scope, list);
+  return updated;
 }
 
 export async function updateProject(_id: string, _patch: any, _scope: Scope): Promise<Project | null> {

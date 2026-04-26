@@ -91,3 +91,38 @@ describe("addProject", () => {
     ).rejects.toThrow(/already exists/i);
   });
 });
+
+describe("listProjects", () => {
+  it("returns all active in-list projects by default", async () => {
+    const a = await addProject({ name: "alpha" }, TEST_SCOPE);
+    const b = await addProject({ name: "beta" }, TEST_SCOPE);
+    const list = await listProjects({}, TEST_SCOPE);
+    expect(list).toHaveLength(2);
+    expect(list.map((p) => p.id).sort()).toEqual([a.id, b.id].sort());
+  });
+
+  it("filters by status", async () => {
+    await addProject({ name: "alpha" }, TEST_SCOPE);
+    const b = await addProject({ name: "beta" }, TEST_SCOPE);
+    await closeProject(b.id, "complete", "done", TEST_SCOPE);
+    const active = await listProjects({ status: "active" }, TEST_SCOPE);
+    expect(active.map((p) => p.name)).toEqual(["alpha"]);
+    const complete = await listProjects(
+      { status: "complete" },
+      TEST_SCOPE,
+    );
+    expect(complete.map((p) => p.name)).toEqual(["beta"]);
+  });
+
+  it("filters by inActiveList=false", async () => {
+    for (let i = 1; i <= 11; i++) {
+      await addProject({ name: `project-${i}` }, TEST_SCOPE);
+    }
+    const offList = await listProjects(
+      { inActiveList: false },
+      TEST_SCOPE,
+    );
+    expect(offList).toHaveLength(1); // The evicted one
+    expect(offList[0].name).toBe("project-1");
+  });
+});
