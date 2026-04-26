@@ -144,8 +144,19 @@ export async function loadProject(
   return { match, candidates: [] };
 }
 
-export async function touchProject(_id: string, _scope: Scope): Promise<Project | null> {
-  return null;
+export async function touchProject(
+  id: string,
+  scope: Scope,
+): Promise<Project | null> {
+  const list = await getOrCreateList(scope);
+  const target = list.projects.find((p) => p.id === id);
+  if (!target) return null;
+  if (!target.inActiveList) return null; // Caller should use loadProject
+  shiftDown(list, target.id);
+  target.position = 1;
+  target.lastTouchedAt = nowIso();
+  await projectsStorage().put(scope, list);
+  return target;
 }
 
 export async function saveSession(_id: string, _note: string, _scope: Scope): Promise<Project | null> {

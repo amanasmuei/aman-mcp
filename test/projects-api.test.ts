@@ -178,3 +178,27 @@ describe("loadProject", () => {
     expect(result.match?.id).toBe(a.id);
   });
 });
+
+describe("touchProject", () => {
+  it("bumps an in-list project to #1 and updates lastTouchedAt", async () => {
+    const a = await addProject({ name: "alpha" }, TEST_SCOPE);
+    await addProject({ name: "beta" }, TEST_SCOPE); // beta now at #1
+    const touched = await touchProject(a.id, TEST_SCOPE);
+    expect(touched?.position).toBe(1);
+    expect(touched?.lastTouchedAt).not.toBe(a.lastTouchedAt);
+    const beta = (await listProjects({}, TEST_SCOPE)).find(
+      (p) => p.name === "beta",
+    );
+    expect(beta?.position).toBe(2);
+  });
+
+  it("returns null when project is off-list (use loadProject instead)", async () => {
+    const ids: string[] = [];
+    for (let i = 1; i <= 11; i++) {
+      const p = await addProject({ name: `project-${i}` }, TEST_SCOPE);
+      ids.push(p.id);
+    }
+    const result = await touchProject(ids[0], TEST_SCOPE);
+    expect(result).toBeNull();
+  });
+});
