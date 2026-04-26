@@ -83,13 +83,21 @@ export function evalLog(
     const content = `# Evaluation Log\n\n- Last updated: ${now}\n${entry}`;
     writeFile(paths.aeval.eval, content);
   } else {
-    // Update last updated date
+    // Update Format A `Last updated:` field if present (no-op for Format B).
     let updated = existing.replace(
       /- Last updated:\s*.+/,
       `- Last updated: ${now}`
     );
     // Append entry
     updated += entry;
+    // Update Format B Overview's `Sessions:` count to match the new total.
+    // Replacement only fires when a `- Sessions:` line exists, so this is a
+    // no-op for Format A files which have no such field.
+    const newSessionCount = updated.match(/^### Session/gm)?.length ?? 0;
+    updated = updated.replace(
+      /^- Sessions:\s*.+$/m,
+      `- Sessions: ${newSessionCount}`,
+    );
     writeFile(paths.aeval.eval, updated);
   }
 

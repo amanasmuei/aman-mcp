@@ -223,4 +223,52 @@ describe("evalLog", () => {
     expect(content).toContain("Highlights: Second session");
     expect(content).toContain("Highlights: Third session");
   });
+
+  it("updates Format B Overview Sessions count when appending", () => {
+    // Format B (written by /eval skill bootstrap) has a `## Overview` block
+    // with `- Sessions:` that must stay in sync with the appended `### Session`
+    // entries. Pre-fix, evalLog only touched Format A's `Last updated:` line,
+    // leaving Format B's Sessions count stuck at its bootstrap value.
+    const formatB = `# AI Relationship Metrics
+
+## Overview
+- Sessions: 0
+- First session: 2026-04-22
+- Trust level: 3/5
+- Trajectory: building
+
+## Timeline
+
+## Milestones
+
+## Patterns
+
+### Session 2026-04-25
+- Rating: good
+- Highlights: First
+- Improvements: None
+`;
+    writeTestFile(tempPaths.aeval.eval, formatB);
+    evalLog("good", "Second", "Better");
+
+    const content = fs.readFileSync(tempPaths.aeval.eval, "utf-8");
+    expect(content).toContain("- Sessions: 2");
+    expect(content).not.toContain("- Sessions: 0");
+    // Bootstrap fields should be preserved untouched
+    expect(content).toContain("- First session: 2026-04-22");
+    expect(content).toContain("- Trust level: 3/5");
+    expect(content).toContain("- Trajectory: building");
+  });
+
+  it("does not introduce a Sessions line into Format A files", () => {
+    // Format A has no `- Sessions:` field; the new write logic must be a
+    // no-op there (only the Last updated line should change).
+    writeTestFile(tempPaths.aeval.eval, SAMPLE_EVAL_MD);
+    evalLog("okay", "Average", "Tweak");
+
+    const content = fs.readFileSync(tempPaths.aeval.eval, "utf-8");
+    expect(content).not.toContain("- Sessions:");
+    const today = new Date().toISOString().split("T")[0];
+    expect(content).toContain(`- Last updated: ${today}`);
+  });
 });
