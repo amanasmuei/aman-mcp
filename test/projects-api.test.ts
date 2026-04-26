@@ -263,3 +263,34 @@ describe("closeProject", () => {
     ).toBeNull();
   });
 });
+
+describe("updateProject", () => {
+  it("patches name, niyyah, workspaces, linkedIntentionId", async () => {
+    const a = await addProject({ name: "alpha" }, TEST_SCOPE);
+    const updated = await updateProject(
+      a.id,
+      {
+        name: "alpha-renamed",
+        niyyah: "for clarity",
+        workspaces: ["~/x", "~/y"],
+        linkedIntentionId: "01KQ3F29B92X3TFNDG30HJR4D1",
+      },
+      TEST_SCOPE,
+    );
+    expect(updated?.name).toBe("alpha-renamed");
+    expect(updated?.niyyah).toBe("for clarity");
+    expect(updated?.workspaces).toEqual(["~/x", "~/y"]);
+    expect(updated?.linkedIntentionId).toBe("01KQ3F29B92X3TFNDG30HJR4D1");
+    expect(updated?.lastTouchedAt).not.toBe(a.lastTouchedAt);
+  });
+
+  it("returns null for unknown id", async () => {
+    expect(
+      await updateProject(
+        "01HKQXNOTEXIST00000000000000",
+        { name: "x" },
+        TEST_SCOPE,
+      ),
+    ).toBeNull();
+  });
+});

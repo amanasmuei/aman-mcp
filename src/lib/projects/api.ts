@@ -219,6 +219,33 @@ export async function closeProject(
   return updated;
 }
 
-export async function updateProject(_id: string, _patch: any, _scope: Scope): Promise<Project | null> {
-  return null;
+export interface UpdateProjectInput {
+  name?: string;
+  niyyah?: string;
+  linkedIntentionId?: string | null;
+  workspaces?: string[];
+}
+
+export async function updateProject(
+  id: string,
+  patch: UpdateProjectInput,
+  scope: Scope,
+): Promise<Project | null> {
+  const list = await getOrCreateList(scope);
+  const idx = list.projects.findIndex((p) => p.id === id);
+  if (idx === -1) return null;
+  const current = list.projects[idx];
+  const updated: Project = {
+    ...current,
+    ...(patch.name !== undefined && { name: patch.name }),
+    ...(patch.niyyah !== undefined && { niyyah: patch.niyyah }),
+    ...(patch.workspaces !== undefined && { workspaces: patch.workspaces }),
+    ...(patch.linkedIntentionId !== undefined && {
+      linkedIntentionId: patch.linkedIntentionId ?? undefined,
+    }),
+    lastTouchedAt: nowIso(),
+  };
+  list.projects[idx] = updated;
+  await projectsStorage().put(scope, list);
+  return updated;
 }
