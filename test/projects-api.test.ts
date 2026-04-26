@@ -184,6 +184,7 @@ describe("touchProject", () => {
   it("bumps an in-list project to #1 and updates lastTouchedAt", async () => {
     const a = await addProject({ name: "alpha" }, TEST_SCOPE);
     await addProject({ name: "beta" }, TEST_SCOPE); // beta now at #1
+    await new Promise((r) => setTimeout(r, 10));
     const touched = await touchProject(a.id, TEST_SCOPE);
     expect(touched?.position).toBe(1);
     expect(touched?.lastTouchedAt).not.toBe(a.lastTouchedAt);
@@ -268,6 +269,7 @@ describe("closeProject", () => {
 describe("updateProject", () => {
   it("patches name, niyyah, workspaces, linkedIntentionId", async () => {
     const a = await addProject({ name: "alpha" }, TEST_SCOPE);
+    await new Promise((r) => setTimeout(r, 10));
     const updated = await updateProject(
       a.id,
       {
