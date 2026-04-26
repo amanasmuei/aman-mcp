@@ -226,15 +226,21 @@ export interface UpdateProjectInput {
   workspaces?: string[];
 }
 
+export interface UpdateProjectOptions {
+  skipReciprocal?: boolean;
+}
+
 export async function updateProject(
   id: string,
   patch: UpdateProjectInput,
   scope: Scope,
+  opts: UpdateProjectOptions = {},
 ): Promise<Project | null> {
   const list = await getOrCreateList(scope);
   const idx = list.projects.findIndex((p) => p.id === id);
   if (idx === -1) return null;
   const current = list.projects[idx];
+  const previousLinkedIntentionId = current.linkedIntentionId;
   const updated: Project = {
     ...current,
     ...(patch.name !== undefined && { name: patch.name }),
@@ -247,6 +253,32 @@ export async function updateProject(
   };
   list.projects[idx] = updated;
   await projectsStorage().put(scope, list);
+
+  if (
+    !opts.skipReciprocal &&
+    patch.linkedIntentionId !== undefined &&
+    patch.linkedIntentionId !== previousLinkedIntentionId
+  ) {
+    const { updateIntention: updIntent } = await import(
+      "../intentions/api.js"
+    );
+    if (previousLinkedIntentionId) {
+      await updIntent(
+        previousLinkedIntentionId,
+        { linkedProjectId: undefined },
+        scope,
+        { skipReciprocal: true },
+      );
+    }
+    if (patch.linkedIntentionId) {
+      await updIntent(
+        patch.linkedIntentionId,
+        { linkedProjectId: id },
+        scope,
+        { skipReciprocal: true },
+      );
+    }
+  }
   return updated;
 }
 
