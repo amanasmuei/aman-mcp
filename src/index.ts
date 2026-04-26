@@ -550,7 +550,7 @@ server.tool(
 
 server.tool(
   "intentions_review",
-  "Bulk review of intentions: counts by status, stale (untouched > staleDays), and horizon distribution. Used by Friday muhasabah agent.",
+  "Bulk review of intentions: counts per status (active, paused, complete, abandoned), stale (active intentions untouched > staleDays), due (active intentions whose horizon window has elapsed since creation: this-week=7d, this-month=30d, this-quarter=90d, lifelong never), and horizon distribution of active intentions. Used by Friday muhasabah agent.",
   { staleDays: z.number().int().positive().default(7) },
   async ({ staleDays }) => {
     const review = await intentionsReview({ staleDays });

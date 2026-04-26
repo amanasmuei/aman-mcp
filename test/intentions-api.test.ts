@@ -313,4 +313,57 @@ describe("intentions api — review", () => {
     expect(result.byHorizon["lifelong"]).toBe(1);
     expect(result.byHorizon["this-quarter"]).toBe(0);
   });
+
+  it("reviewIntentions() reports complete and abandoned counts", async () => {
+    const a = await addIntention(
+      { description: "Will complete", niyyah: "n", successCriteria: "s", horizon: "this-week" },
+      TEST_SCOPE,
+    );
+    const b = await addIntention(
+      { description: "Will abandon", niyyah: "n", successCriteria: "s", horizon: "this-week" },
+      TEST_SCOPE,
+    );
+    await addIntention(
+      { description: "Stays active", niyyah: "n", successCriteria: "s", horizon: "this-week" },
+      TEST_SCOPE,
+    );
+    await closeIntention(a.id, "complete", "shipped", TEST_SCOPE);
+    await closeIntention(b.id, "abandoned", "scope changed", TEST_SCOPE);
+
+    const result = await reviewIntentions({ staleDays: 7 }, TEST_SCOPE);
+    expect(result.active).toBe(1);
+    expect(result.complete).toBe(1);
+    expect(result.abandoned).toBe(1);
+  });
+
+  it("reviewIntentions() flags this-week intentions older than 7 days as due", async () => {
+    const created = await addIntention(
+      { description: "Overdue weekly", niyyah: "n", successCriteria: "s", horizon: "this-week" },
+      TEST_SCOPE,
+    );
+    const list = await getOrCreateList(TEST_SCOPE);
+    list.intentions[0].createdAt = new Date(
+      Date.now() - 8 * 24 * 60 * 60 * 1000,
+    ).toISOString();
+    await intentionsStorage().put(TEST_SCOPE, list);
+
+    const result = await reviewIntentions({ staleDays: 30 }, TEST_SCOPE);
+    expect(result.due).toHaveLength(1);
+    expect(result.due[0].id).toBe(created.id);
+  });
+
+  it("reviewIntentions() does not flag lifelong intentions as due", async () => {
+    await addIntention(
+      { description: "Forever goal", niyyah: "n", successCriteria: "s", horizon: "lifelong" },
+      TEST_SCOPE,
+    );
+    const list = await getOrCreateList(TEST_SCOPE);
+    list.intentions[0].createdAt = new Date(
+      Date.now() - 365 * 24 * 60 * 60 * 1000,
+    ).toISOString();
+    await intentionsStorage().put(TEST_SCOPE, list);
+
+    const result = await reviewIntentions({ staleDays: 7 }, TEST_SCOPE);
+    expect(result.due).toEqual([]);
+  });
 });

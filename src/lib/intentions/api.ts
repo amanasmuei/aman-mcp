@@ -149,9 +149,19 @@ export interface ReviewOptions {
 export interface ReviewResult {
   active: number;
   paused: number;
+  complete: number;
+  abandoned: number;
   stale: Intention[];
+  due: Intention[];
   byHorizon: Record<IntentionHorizon, number>;
 }
+
+const HORIZON_DUE_DAYS: Record<IntentionHorizon, number | null> = {
+  "this-week": 7,
+  "this-month": 30,
+  "this-quarter": 90,
+  lifelong: null,
+};
 
 export async function reviewIntentions(
   opts: ReviewOptions,
@@ -160,11 +170,21 @@ export async function reviewIntentions(
   const list = await getOrCreateList(scope);
   const active = list.intentions.filter((i) => i.status === "active");
   const paused = list.intentions.filter((i) => i.status === "paused");
+  const complete = list.intentions.filter((i) => i.status === "complete");
+  const abandoned = list.intentions.filter((i) => i.status === "abandoned");
 
   const cutoff = Date.now() - opts.staleDays * 24 * 60 * 60 * 1000;
   const stale = active.filter(
     (i) => new Date(i.lastTouchedAt).getTime() < cutoff,
   );
+
+  const now = Date.now();
+  const due = active.filter((i) => {
+    const window = HORIZON_DUE_DAYS[i.horizon];
+    if (window === null) return false;
+    const ageMs = now - new Date(i.createdAt).getTime();
+    return ageMs >= window * 24 * 60 * 60 * 1000;
+  });
 
   const byHorizon: Record<IntentionHorizon, number> = {
     "this-week": 0,
@@ -179,7 +199,10 @@ export async function reviewIntentions(
   return {
     active: active.length,
     paused: paused.length,
+    complete: complete.length,
+    abandoned: abandoned.length,
     stale,
+    due,
     byHorizon,
   };
 }
