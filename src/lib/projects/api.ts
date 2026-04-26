@@ -64,8 +64,12 @@ export async function addProject(
 
 // Stubs for incremental dev — implemented in Tasks 7-17
 
-export async function getProject(_id: string, _scope: Scope): Promise<Project | null> {
-  return null;
+export async function getProject(
+  id: string,
+  scope: Scope,
+): Promise<Project | null> {
+  const list = await getOrCreateList(scope);
+  return list.projects.find((p) => p.id === id) ?? null;
 }
 
 export async function listProjects(_filters: any, _scope: Scope): Promise<Project[]> {

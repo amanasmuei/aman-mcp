@@ -51,4 +51,18 @@ describe("addProject", () => {
     expect(p.lastTouchedAt).toBe(p.createdAt);
     expect(p.sessionLog).toBe("");
   });
+
+  it("shifts existing projects down when a new one is added", async () => {
+    const a = await addProject({ name: "alpha" }, TEST_SCOPE);
+    const b = await addProject({ name: "beta" }, TEST_SCOPE);
+    const c = await addProject({ name: "gamma" }, TEST_SCOPE);
+
+    const fetchedA = await getProject(a.id, TEST_SCOPE);
+    const fetchedB = await getProject(b.id, TEST_SCOPE);
+    const fetchedC = await getProject(c.id, TEST_SCOPE);
+
+    expect(fetchedC?.position).toBe(1);
+    expect(fetchedB?.position).toBe(2);
+    expect(fetchedA?.position).toBe(3);
+  });
 });
