@@ -20,7 +20,7 @@
   "dependencies": {
     "@aman_asmuei/acore-core": "^0.2.0",
     "@aman_asmuei/aman-core": "^0.3.0",
-    "@aman_asmuei/arules-core": "^0.2.0",
+    "@aman_asmuei/arules-core": "^0.2.1",
     "@modelcontextprotocol/sdk": "^1.0.0",
     "pdf-parse": "^2.4.5",
     "ulid": "^2.4.0"
