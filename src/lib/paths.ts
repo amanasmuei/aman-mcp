@@ -26,6 +26,10 @@ export const paths = {
     dir: path.join(home, ".aeval"),
     eval: path.join(home, ".aeval", "eval.md"),
   },
+  aprojects: {
+    dir: path.join(home, ".aprojects"),
+    projects: path.join(home, ".aprojects", "projects.md"),
+  },
   askill: {
     dir: path.join(home, ".askill"),
     skills: path.join(home, ".askill", "skills.md"),
