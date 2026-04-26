@@ -202,3 +202,28 @@ describe("touchProject", () => {
     expect(result).toBeNull();
   });
 });
+
+describe("saveSession", () => {
+  it("appends a timestamped session entry to the project's sessionLog", async () => {
+    const a = await addProject({ name: "alpha" }, TEST_SCOPE);
+    await saveSession(a.id, "closed Bug 4, filed Bug 6", TEST_SCOPE);
+    const fetched = await getProject(a.id, TEST_SCOPE);
+    expect(fetched?.sessionLog).toContain("closed Bug 4, filed Bug 6");
+    expect(fetched?.sessionLog).toMatch(/^### \d{4}-\d{2}-\d{2}/);
+  });
+
+  it("appends successive sessions in order", async () => {
+    const a = await addProject({ name: "alpha" }, TEST_SCOPE);
+    await saveSession(a.id, "first note", TEST_SCOPE);
+    await saveSession(a.id, "second note", TEST_SCOPE);
+    const fetched = await getProject(a.id, TEST_SCOPE);
+    const firstIdx = fetched!.sessionLog.indexOf("first note");
+    const secondIdx = fetched!.sessionLog.indexOf("second note");
+    expect(firstIdx).toBeGreaterThan(-1);
+    expect(secondIdx).toBeGreaterThan(firstIdx);
+  });
+
+  it("returns null for unknown id", async () => {
+    expect(await saveSession("01HKQXNOTEXIST00000000000000", "x", TEST_SCOPE)).toBeNull();
+  });
+});

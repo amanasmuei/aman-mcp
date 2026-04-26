@@ -159,8 +159,37 @@ export async function touchProject(
   return target;
 }
 
-export async function saveSession(_id: string, _note: string, _scope: Scope): Promise<Project | null> {
-  return null;
+export async function saveSession(
+  id: string,
+  sessionNote: string,
+  scope: Scope,
+): Promise<Project | null> {
+  const list = await getOrCreateList(scope);
+  const idx = list.projects.findIndex((p) => p.id === id);
+  if (idx === -1) return null;
+  const now = nowIso();
+  const dateStr = now.slice(0, 10);
+  const timeOfDay = periodOfDay(new Date(now));
+  const entry = `### ${dateStr} ${timeOfDay}\n${sessionNote}\n`;
+  const current = list.projects[idx];
+  const updated: Project = {
+    ...current,
+    sessionLog: current.sessionLog
+      ? `${current.sessionLog}\n${entry}`
+      : entry,
+    lastTouchedAt: now,
+  };
+  list.projects[idx] = updated;
+  await projectsStorage().put(scope, list);
+  return updated;
+}
+
+function periodOfDay(d: Date): string {
+  const h = d.getHours();
+  if (h >= 5 && h < 12) return "morning";
+  if (h < 17) return "afternoon";
+  if (h < 21) return "evening";
+  return "late-night";
 }
 
 export async function closeProject(
