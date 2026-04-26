@@ -126,3 +126,17 @@ describe("listProjects", () => {
     expect(offList[0].name).toBe("project-1");
   });
 });
+
+describe("activeProject", () => {
+  it("returns null when no projects exist", async () => {
+    expect(await activeProject(TEST_SCOPE)).toBeNull();
+  });
+
+  it("returns the position-1 project after creation", async () => {
+    await addProject({ name: "alpha" }, TEST_SCOPE);
+    const beta = await addProject({ name: "beta" }, TEST_SCOPE);
+    const active = await activeProject(TEST_SCOPE);
+    expect(active?.id).toBe(beta.id);
+    expect(active?.position).toBe(1);
+  });
+});

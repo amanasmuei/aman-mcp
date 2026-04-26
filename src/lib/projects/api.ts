@@ -98,8 +98,10 @@ export async function listProjects(
   });
 }
 
-export async function activeProject(_scope: Scope): Promise<Project | null> {
-  return null;
+export async function activeProject(scope: Scope): Promise<Project | null> {
+  const list = await getOrCreateList(scope);
+  const sorted = activeProjectsSorted(list);
+  return sorted[0] ?? null;
 }
 
 export async function loadProject(_query: string, _scope: Scope): Promise<{ match: Project | null; candidates: Project[] }> {
