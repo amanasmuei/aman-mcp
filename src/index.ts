@@ -47,6 +47,18 @@ import {
   intentionsClose,
   intentionsReview,
 } from "./tools/intentions.js";
+import {
+  projectAdd,
+  projectGet,
+  projectList,
+  projectActive,
+  projectLoad,
+  projectTouch,
+  projectSave,
+  projectClose,
+  projectUpdate,
+  projectBrief,
+} from "./tools/projects.js";
 
 const server = new McpServer({
   name: "aman-mcp",
@@ -556,6 +568,151 @@ server.tool(
     const review = await intentionsReview({ staleDays });
     return {
       content: [{ type: "text", text: JSON.stringify(review, null, 2) }],
+    };
+  },
+);
+
+// --- Projects (aprojects) — LRU work-thread tracker ---
+
+server.tool(
+  "project_add",
+  "Create a new project at LRU position #1. Existing projects shift down; #11 evicts to off-list. Optional createdAt/lastTouchedAt support back-dating during migration of existing work.",
+  {
+    name: z.string().min(1).describe("Project name (case-insensitive unique)"),
+    niyyah: z.string().optional().describe("Why this matters; spirit anchor"),
+    linkedIntentionId: z.string().optional(),
+    workspaces: z
+      .array(z.string())
+      .optional()
+      .describe("cwd paths this project spans"),
+    createdAt: z.string().optional().describe("ISO timestamp; defaults to now"),
+    lastTouchedAt: z.string().optional().describe("ISO timestamp"),
+  },
+  async (input) => ({
+    content: [
+      { type: "text", text: JSON.stringify(await projectAdd(input), null, 2) },
+    ],
+  }),
+);
+
+server.tool(
+  "project_get",
+  "Read a single project by id (full body including sessionLog).",
+  { id: z.string() },
+  async ({ id }) => {
+    const p = await projectGet(id);
+    return {
+      content: [
+        { type: "text", text: p === null ? "null" : JSON.stringify(p, null, 2) },
+      ],
+    };
+  },
+);
+
+server.tool(
+  "project_list",
+  "List projects filtered by status and/or LRU membership. Default: active+inActiveList.",
+  {
+    status: z.enum(["active", "paused", "complete", "abandoned"]).optional(),
+    inActiveList: z.boolean().optional(),
+  },
+  async (filters) => ({
+    content: [
+      { type: "text", text: JSON.stringify(await projectList(filters), null, 2) },
+    ],
+  }),
+);
+
+server.tool(
+  "project_active",
+  "Fast path — return the position-1 active project, or null. Used by SessionStart hook and 'what's active' queries.",
+  {},
+  async () => {
+    const p = await projectActive();
+    return {
+      content: [
+        { type: "text", text: p === null ? "null" : JSON.stringify(p, null, 2) },
+      ],
+    };
+  },
+);
+
+server.tool(
+  "project_load",
+  "Load a project by name or id (fuzzy match). Brings to position #1; restores from off-list. Returns disambiguation candidates if ambiguous.",
+  { query: z.string().min(1) },
+  async ({ query }) => ({
+    content: [
+      { type: "text", text: JSON.stringify(await projectLoad(query), null, 2) },
+    ],
+  }),
+);
+
+server.tool(
+  "project_touch",
+  "Bump an in-list project to position #1 and update lastTouchedAt. Returns null if project is off-list (use project_load instead).",
+  { id: z.string() },
+  async ({ id }) => {
+    const p = await projectTouch(id);
+    return {
+      content: [
+        { type: "text", text: p === null ? "null" : JSON.stringify(p, null, 2) },
+      ],
+    };
+  },
+);
+
+server.tool(
+  "project_save",
+  "Append a timestamped session note to the project's sessionLog. Does NOT modify identity or AI memory.",
+  {
+    id: z.string(),
+    sessionNote: z.string().min(1),
+  },
+  async ({ id, sessionNote }) => {
+    const p = await projectSave(id, sessionNote);
+    return {
+      content: [
+        { type: "text", text: p === null ? "null" : JSON.stringify(p, null, 2) },
+      ],
+    };
+  },
+);
+
+server.tool(
+  "project_close",
+  "Transition project lifecycle to complete / abandoned / paused with reason. Frees LRU slot.",
+  {
+    id: z.string(),
+    status: z.enum(["complete", "abandoned", "paused"]),
+    reason: z.string().min(1),
+  },
+  async ({ id, status, reason }) => {
+    const p = await projectClose(id, status, reason);
+    return {
+      content: [
+        { type: "text", text: p === null ? "null" : JSON.stringify(p, null, 2) },
+      ],
+    };
+  },
+);
+
+server.tool(
+  "project_update",
+  "Patch project metadata (name, niyyah, workspaces, linkedIntentionId). When linkedIntentionId changes, the linked intention's linkedProjectId is reciprocally updated.",
+  {
+    id: z.string(),
+    name: z.string().optional(),
+    niyyah: z.string().optional(),
+    linkedIntentionId: z.string().nullable().optional(),
+    workspaces: z.array(z.string()).optional(),
+  },
+  async ({ id, ...patch }) => {
+    const p = await projectUpdate(id, patch);
+    return {
+      content: [
+        { type: "text", text: p === null ? "null" : JSON.stringify(p, null, 2) },
+      ],
     };
   },
 );
