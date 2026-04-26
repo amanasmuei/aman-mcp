@@ -104,8 +104,44 @@ export async function activeProject(scope: Scope): Promise<Project | null> {
   return sorted[0] ?? null;
 }
 
-export async function loadProject(_query: string, _scope: Scope): Promise<{ match: Project | null; candidates: Project[] }> {
-  return { match: null, candidates: [] };
+export interface LoadProjectResult {
+  match: Project | null;
+  candidates: Project[];
+}
+
+export async function loadProject(
+  query: string,
+  scope: Scope,
+): Promise<LoadProjectResult> {
+  const list = await getOrCreateList(scope);
+  const q = query.toLowerCase();
+  // Exact match first (case-insensitive on name or id prefix)
+  const exact = list.projects.find(
+    (p) => p.name.toLowerCase() === q || p.id === query,
+  );
+  let match: Project | null = exact ?? null;
+  let candidates: Project[] = [];
+  if (!match) {
+    const substring = list.projects.filter((p) =>
+      p.name.toLowerCase().includes(q),
+    );
+    if (substring.length === 1) {
+      match = substring[0];
+    } else if (substring.length > 1) {
+      candidates = substring;
+    }
+  }
+  if (!match) return { match: null, candidates };
+  // Bring match to position #1
+  const now = nowIso();
+  shiftDown(list, match.id);
+  match.inActiveList = true;
+  match.position = 1;
+  match.lastTouchedAt = now;
+  match.lruEvictedAt = undefined;
+  evictIfOverCapacity(list, now);
+  await projectsStorage().put(scope, list);
+  return { match, candidates: [] };
 }
 
 export async function touchProject(_id: string, _scope: Scope): Promise<Project | null> {

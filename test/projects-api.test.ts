@@ -140,3 +140,41 @@ describe("activeProject", () => {
     expect(active?.position).toBe(1);
   });
 });
+
+describe("loadProject", () => {
+  it("brings an off-list project back to position #1 (restoration)", async () => {
+    // Create 11 → first one gets evicted
+    const ids: string[] = [];
+    for (let i = 1; i <= 11; i++) {
+      const p = await addProject({ name: `project-${i}` }, TEST_SCOPE);
+      ids.push(p.id);
+    }
+    const result = await loadProject("project-1", TEST_SCOPE);
+    expect(result.match?.id).toBe(ids[0]);
+    expect(result.match?.inActiveList).toBe(true);
+    expect(result.match?.position).toBe(1);
+    expect(result.candidates).toEqual([]);
+  });
+
+  it("returns the candidate list when fuzzy match is ambiguous", async () => {
+    await addProject({ name: "phase 1.5 substrate" }, TEST_SCOPE);
+    await addProject({ name: "phase 2 distribution" }, TEST_SCOPE);
+    const result = await loadProject("phase", TEST_SCOPE);
+    expect(result.match).toBeNull();
+    expect(result.candidates).toHaveLength(2);
+  });
+
+  it("returns empty candidates when no match", async () => {
+    await addProject({ name: "alpha" }, TEST_SCOPE);
+    const result = await loadProject("nonexistent", TEST_SCOPE);
+    expect(result.match).toBeNull();
+    expect(result.candidates).toEqual([]);
+  });
+
+  it("prefers exact name match over substring", async () => {
+    const a = await addProject({ name: "phase" }, TEST_SCOPE);
+    await addProject({ name: "phase 1.5 substrate" }, TEST_SCOPE);
+    const result = await loadProject("phase", TEST_SCOPE);
+    expect(result.match?.id).toBe(a.id);
+  });
+});
