@@ -42,10 +42,20 @@ export async function identityRead(): Promise<string> {
   return identity.content;
 }
 
+/**
+ * Identity summary — names, role, personality. Trust level is deliberately
+ * NOT exposed here: it lives on the eval layer (`~/.aeval/eval.md`, written
+ * by `/eval` skill bootstrap and `eval_log`), and the identity layer has no
+ * authoritative source for it. Callers needing trust call `eval_status`.
+ *
+ * History: a `trustLevel` field used to live on this contract but always
+ * returned `"unknown"` because the identity file has no `- Trust level:`
+ * bullet — Bug 6 in `docs/superpowers/plans/2026-04-25-phase-1.5-followups.md`.
+ * Removed in 0.9.0 (Option 2: drop the field, single-layer responsibility).
+ */
 export async function identitySummary(): Promise<{
   aiName: string;
   userName: string;
-  trustLevel: string;
   personality: string;
   role: string;
 }> {
@@ -54,7 +64,6 @@ export async function identitySummary(): Promise<{
     return {
       aiName: "unknown",
       userName: "unknown",
-      trustLevel: "unknown",
       personality: "unknown",
       role: "unknown",
     };
@@ -73,7 +82,6 @@ export async function identitySummary(): Promise<{
   return {
     aiName: h1Match?.[1]?.trim() ?? "unknown",
     userName: getBulletField(identity, "Name") ?? "unknown",
-    trustLevel: getBulletField(identity, "Level") ?? "unknown",
     personality:
       personalityBullet ??
       (personalitySection ? personalitySection.split("\n")[0] : "unknown"),

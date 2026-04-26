@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.9.0 — 2026-04-27
+
+### Breaking — `identity_summary` no longer returns `trustLevel`
+
+The `trustLevel` field always returned `"unknown"` because the identity layer (`~/.acore/.../core.md`) has no authoritative source for it — trust is owned by the eval layer (`~/.aeval/eval.md`, written by `/eval` skill bootstrap and `eval_log`). The field's contract was a cross-layer schema mismatch, not a fixable parsing bug.
+
+- **Removed** `trustLevel: string` from `identitySummary`'s return type.
+- **Migration:** callers needing trust call `eval_status` directly. The MCP `eval_status` tool is the authoritative single source.
+- **Why Option 2 (drop) over Option 1 (cross-layer merge):** single-layer responsibility matches how the rest of the substrate is shaped (rules from arules, intentions from intentions). A higher-level aggregator can be built later if a real consumer needs the merged view.
+
+Closes Bug 6 in `docs/superpowers/plans/2026-04-25-phase-1.5-followups.md`.
+
 ## 0.8.0 — 2026-04-26
 
 ### Added — Projects layer (aprojects)
