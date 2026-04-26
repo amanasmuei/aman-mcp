@@ -1,6 +1,6 @@
 {
   "name": "@aman_asmuei/aman-mcp",
-  "version": "0.7.0",
+  "version": "0.7.1",
   "description": "MCP server for the aman AI companion ecosystem — identity, tools, workflows, guardrails, evaluation",
   "type": "module",
   "bin": {
