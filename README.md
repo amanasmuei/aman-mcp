@@ -164,6 +164,31 @@ npx @aman_asmuei/aman-mcp
 
 ---
 
+## Projects (aprojects) — LRU work-thread tracker
+
+Discrete arcs of work, LRU-positioned across 10 active slots, peer to intentions / eval / rules. Active project surfaces unconditionally in SessionStart.
+
+**Storage:** `~/.aprojects/dev/plugin/projects.md` (single file via MarkdownFileStorage; matches intentions pattern).
+
+**Tools:**
+- `project_add` — create at #1, shift others, evict at #11
+- `project_get` — read one
+- `project_list` — filter by status / inActiveList
+- `project_active` — fast path: position #1
+- `project_load` — fuzzy match, restore from off-list
+- `project_touch` — bump in-list project to #1
+- `project_save` — append timestamped session note
+- `project_close` — transition to complete / paused / abandoned
+- `project_update` — patch metadata; reciprocally updates `intentions.linkedProjectId`
+
+**Lifecycle vs LRU:** orthogonal axes. `status` is lifecycle (active/paused/complete/abandoned). `inActiveList` is LRU membership. LRU eviction at #11 sets `inActiveList=false` but keeps `status=active` — the project is still alive, just not in the top 10.
+
+**Bidirectional link:** Setting `linkedIntentionId` on a project also sets `linkedProjectId` on the intention (and vice versa). Closing one side does NOT close the other.
+
+**Override paths root:** `$AMAN_PROJECTS_HOME` (used by tests).
+
+---
+
 ## Architecture
 
 ```
